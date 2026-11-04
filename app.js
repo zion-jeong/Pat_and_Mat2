@@ -12,6 +12,7 @@ const state = {
   specNo: 45,              // H-400×200×8×13
   length: 6000,
   member: '',
+  client: '',
   zones: [],               // {id, face:'all'|faceId, start, end, from?, to?}
   selected: null,
   mode: 'view',
@@ -465,6 +466,7 @@ $('length').onchange = () => {
   specChanged(true);
 };
 $('member').oninput = () => { state.member = $('member').value.trim(); saveDraft(); };
+$('client').oninput = () => { state.client = $('client').value.trim(); saveDraft(); };
 
 // ---------- 모드·버튼 ----------
 function setMode(m) {
@@ -507,6 +509,7 @@ function buildJob() {
   const approved = $('approved').checked;
   return {
     schema: 'steelcoat-job-v1',
+    client: state.client || null,
     member: state.member || null,
     approved,
     approved_by: $('operator').value.trim(),
@@ -541,6 +544,7 @@ function loadJob(j) {
   state.specNo = s.no;
   state.length = clamp(Math.round(j.length_mm), 500, 30000);
   state.member = j.member || '';
+  state.client = j.client || '';
   state.zones = (j.exclusion_zones || []).map((z) => ({
     id: nextId++, face: z.face || 'all', start: z.start, end: z.end,
     ...(z.face ? { from: z.from, to: z.to } : {}),
@@ -561,8 +565,21 @@ function writeJobs(list) {
   catch { return false; }
 }
 // 처음 실행(저장 목록이 아예 없을 때)만 예시 데이터를 넣음. 목록에서 삭제 가능.
+const CLIENT_OF = { 'B-101': '가온건설', 'B-102': '가온건설', 'B-103': '가온건설', 'B-104': '누리철강', 'B-201': '누리철강', 'B-202': '누리철강', 'B-203': '다온중공업', 'C-301': '다온중공업' };
 function seedSamples() {
-  try { if (localStorage.getItem(JOBS_KEY) !== null) return; } catch { return; }
+  let raw;
+  try { raw = localStorage.getItem(JOBS_KEY); } catch { return; }
+  if (raw !== null) {
+    // 발주사 항목이 생기기 전에 들어간 예시 데이터에 발주사를 채움 (한 번만)
+    try {
+      if (localStorage.getItem('steelcoat-seed-client')) return;
+      const list = readJobs();
+      list.forEach((r) => { if (!r.job.client && CLIENT_OF[r.job.member]) r.job.client = CLIENT_OF[r.job.member]; });
+      writeJobs(list); localStorage.setItem('steelcoat-seed-client', '1');
+    } catch { /* 무시 */ }
+    return;
+  }
+  try { localStorage.setItem('steelcoat-seed-client', '1'); } catch { /* 무시 */ }
   const day = (d, h) => { const t = new Date(); t.setDate(t.getDate() - d); t.setHours(h, (d * 17) % 60, 0, 0); return t.toISOString(); };
   const mk = (member, no, len, op, approved, zones, saved, done) => {
     const sp = HBEAM_SPECS.find((x) => x.no === no);
@@ -570,7 +587,7 @@ function seedSamples() {
     return {
       id: newId(), saved_at: day(saved, 10), ...(done != null ? { completed_at: day(done, 16) } : {}),
       job: {
-        schema: 'steelcoat-job-v1', member, approved, approved_by: op, approved_at: approved ? day(saved, 10) : null,
+        schema: 'steelcoat-job-v1', client: CLIENT_OF[member], member, approved, approved_by: op, approved_at: approved ? day(saved, 10) : null,
         spec: specString(sp),
         spec_ref: { standard: 'KS D 3502:2022', source: HBEAM_SOURCE, no: sp.no, nominal: sp.nominal, H: sp.H, B: sp.B, t1: sp.t1, t2: sp.t2, r: sp.r, kg_m: sp.kg_m },
         length_mm: len, frame: 'member_local_mm: X=길이(0=시작단), Y=폭(+좌, 웹 중심 0), Z=높이(0=하부 플랜지 아랫면)',
@@ -595,21 +612,24 @@ function seedSamples() {
   ];
   writeJobs(list);
 }
-const sameMember = (a, b) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+const norm = (v) => (v || '').trim().toLowerCase();
+const sameJob = (a, b) => norm(a.client) === norm(b.client) && norm(a.member) === norm(b.member);   // 발주사 + 부재 번호
+const jobLabel = (j) => `${j.client ? j.client + ' ' : ''}${j.member}`;
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
 $('save').onclick = () => {
+  if (!state.client) return msg('발주사를 입력하세요.', 'err');
   if (!state.member) return msg('부재 번호를 입력하세요.', 'err');
   if (!$('operator').value.trim()) return msg('작업자 이름을 입력하세요.', 'err');
   const bad = state.zones.find((z) => !(z.end > z.start) || (z.face !== 'all' && !(z.to > z.from)));
   if (bad) return msg(`${state.zones.indexOf(bad) + 1}번 영역의 크기가 0입니다.`, 'err');
   const list = readJobs();
   let rec = list.find((r) => r.id === currentJobId);
-  if (rec && !sameMember(rec.job.member, state.member)) rec = null;       // 부재 번호를 바꾸면 새 항목
+  if (rec && !sameJob(rec.job, state)) rec = null;       // 발주사·부재 번호를 바꾸면 새 항목
   if (!rec) {
-    const dup = list.find((r) => sameMember(r.job.member, state.member));
+    const dup = list.find((r) => sameJob(r.job, state));
     if (dup) {
-      if (!confirm(`부재 ${state.member}이(가) 목록에 이미 있습니다. 덮어쓸까요?`)) return;
+      if (!confirm(`${jobLabel(state)}이(가) 목록에 이미 있습니다. 덮어쓸까요?`)) return;
       rec = dup;
     }
   }
@@ -621,12 +641,12 @@ $('save').onclick = () => {
   if (!writeJobs(list)) return msg('저장 공간이 부족해 저장하지 못했습니다.', 'err');
   currentJobId = rec.id;
   saveDraft(); renderJobs(); showEditing();
-  msg(`저장했습니다: ${state.member}${job.approved ? '' : ' (미승인)'}`, 'ok');
+  msg(`저장했습니다: ${jobLabel(state)}${job.approved ? '' : ' (미승인)'}`, 'ok');
 };
 
 $('newJob').onclick = () => {
   currentJobId = null;
-  state.member = ''; state.zones = []; state.selected = null;
+  state.member = ''; state.zones = []; state.selected = null;   // 발주사는 유지 (같은 발주사 부재를 이어서 입력)
   $('approved').checked = false;
   syncInputs(); changed(); showEditing();
   $('member').focus();
@@ -634,7 +654,7 @@ $('newJob').onclick = () => {
 
 function showEditing() {
   const rec = currentJobId && readJobs().find((r) => r.id === currentJobId);
-  $('editing').innerHTML = rec ? `저장된 작업 편집 중: <b>${esc(rec.job.member)}</b>` : '새 작업';
+  $('editing').innerHTML = rec ? `저장된 작업 편집 중: <b>${esc(jobLabel(rec.job))}</b>` : '새 작업';
 }
 const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
 function hl(text, q) {
@@ -655,9 +675,10 @@ function visibleJobs() {
   const nat = (a, b) => (a || '').localeCompare(b || '', 'ko', { numeric: true, sensitivity: 'base' });
   return readJobs()
     .filter((r) => !!r.completed_at === (listMode === 'done'))
-    .filter((r) => !q || [r.job.member, r.job.approved_by, r.job.spec, r.job.spec_ref?.nominal]
+    .filter((r) => !q || [r.job.client, r.job.member, r.job.approved_by, r.job.spec, r.job.spec_ref?.nominal]
       .some((v) => (v || '').toLowerCase().includes(q)))
     .sort((a, b) => by === 'recent' ? (b.completed_at || b.saved_at).localeCompare(a.completed_at || a.saved_at)
+      : by === 'client' ? nat(a.job.client, b.job.client) || nat(a.job.member, b.job.member)
       : by === 'operator' ? nat(a.job.approved_by, b.job.approved_by) || nat(a.job.member, b.job.member)
       : by === 'spec' ? (a.job.spec_ref?.no ?? 999) - (b.job.spec_ref?.no ?? 999) || nat(a.job.member, b.job.member)
       : nat(a.job.member, b.job.member));
@@ -676,12 +697,18 @@ function renderJobs() {
     ? (listMode === 'done' ? '도장 완료된 H빔이 없습니다.' : '작업이 없습니다. ＋ 추가로 시작하세요.')
     : !rows.length ? '검색 결과가 없습니다.' : '';
   $('jobs').closest('.tablewrap').hidden = !rows.length;
+  let prevClient;
   for (const r of rows) {
     const j = r.job;
     const tr = document.createElement('tr');
-    if (r.id === currentJobId) tr.className = 'cur';
+    const cls = [];
+    if (r.id === currentJobId) cls.push('cur');
+    if ($('sort').value === 'client' && prevClient !== undefined && norm(prevClient) !== norm(j.client)) cls.push('grp');
+    prevClient = j.client;
+    tr.className = cls.join(' ');
     const badge = r.completed_at ? '' : `<em class="badge ${j.approved ? 'ok' : 'no'}">${j.approved ? '승인' : '미승인'}</em>`;
     tr.innerHTML = `<td class="ck"><input type="checkbox" aria-label="${esc(j.member)} 선택"${picked.has(r.id) ? ' checked' : ''}></td>
+      <td class="cli">${hl(j.client || '-', q)}</td>
       <td class="mem"><b>${hl(j.member, q)}</b>${badge}</td>
       <td>${hl(j.approved_by, q)}</td>
       <td class="spec">${hl(j.spec, q)}</td>
@@ -759,11 +786,11 @@ $('importFile').onchange = async () => {
     const jobs = Array.isArray(d.jobs) ? d.jobs : [d];
     jobs.forEach(specOf);
     const list = readJobs();
-    const dups = jobs.filter((j) => list.some((r) => sameMember(r.job.member, j.member)));
+    const dups = jobs.filter((j) => list.some((r) => sameJob(r.job, j)));
     const over = dups.length ? confirm(`같은 부재 번호 ${dups.length}개가 이미 있습니다. 덮어쓸까요? (취소 = 건너뛰기)`) : false;
     let added = 0, replaced = 0;
     for (const j of jobs) {
-      const old = list.find((r) => sameMember(r.job.member, j.member));
+      const old = list.find((r) => sameJob(r.job, j));
       if (old) { if (over) { old.job = j; old.saved_at = new Date().toISOString(); replaced++; } }
       else { list.push({ id: newId(), saved_at: new Date().toISOString(), job: j }); added++; }
     }
@@ -805,14 +832,14 @@ $('back').onclick = () => screen('list');
 // ---------- 임시 저장 ----------
 function saveDraft() {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ specNo: state.specNo, length: state.length, member: state.member, zones: state.zones, operator: $('operator').value, approved: $('approved').checked, jobId: currentJobId }));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ specNo: state.specNo, length: state.length, member: state.member, client: state.client, zones: state.zones, operator: $('operator').value, approved: $('approved').checked, jobId: currentJobId }));
   } catch { /* 저장 불가 환경 */ }
 }
 function loadDraft() {
   try {
     const d = JSON.parse(localStorage.getItem(DRAFT_KEY) || 'null');
     if (!d || !HBEAM_SPECS.some((s) => s.no === d.specNo)) return;
-    Object.assign(state, { specNo: d.specNo, length: d.length, member: d.member || '', zones: d.zones || [] });
+    Object.assign(state, { specNo: d.specNo, length: d.length, member: d.member || '', client: d.client || '', zones: d.zones || [] });
     nextId = Math.max(0, ...state.zones.map((z) => z.id)) + 1;
     $('operator').value = d.operator || '';
     $('approved').checked = d.approved === true;
@@ -824,6 +851,9 @@ $('approved').onchange = saveDraft;
 function syncInputs() {
   $('length').value = state.length;
   $('member').value = state.member;
+  $('client').value = state.client;
+  const cl = [...new Set(readJobs().map((r) => r.job.client).filter(Boolean))].sort((a, b) => a.localeCompare(b, 'ko'));
+  $('clientList').innerHTML = cl.map((c) => `<option value="${esc(c)}">`).join('');
 }
 
 // ---------- 시작 ----------

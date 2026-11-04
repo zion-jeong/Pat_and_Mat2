@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
 </script>
@@ -30,9 +30,15 @@
 
     <section>
       <h2>1. 부재</h2>
-      <label>부재 번호
-        <input id="member" type="text" placeholder="예: B-101" autocomplete="off">
-      </label>
+      <div class="row even">
+        <label>발주사
+          <input id="client" type="text" placeholder="예: 가온건설" autocomplete="off" list="clientList">
+          <datalist id="clientList"></datalist>
+        </label>
+        <label>부재 번호
+          <input id="member" type="text" placeholder="예: B-101" autocomplete="off">
+        </label>
+      </div>
       <div class="row">
         <label>호칭
           <select id="nominal"></select>
@@ -85,9 +91,10 @@
       </nav>
       <button id="addJob" type="button" class="primary wide">＋ 추가</button>
       <form id="searchForm" class="searchbar" role="search">
-        <input id="search" type="search" placeholder="부재 번호, 작업자, 규격 검색" autocomplete="off" aria-label="목록 검색">
+        <input id="search" type="search" placeholder="발주사, 부재 번호, 작업자, 규격 검색" autocomplete="off" aria-label="목록 검색">
         <button type="submit" class="iconbtn" aria-label="검색" title="검색"><svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></button>
         <select id="sort" aria-label="정렬">
+          <option value="client">발주사 순</option>
           <option value="member">부재 번호 순</option>
           <option value="operator">작업자 순</option>
           <option value="spec">규격 순</option>
@@ -98,7 +105,7 @@
         <table class="jtable">
           <thead><tr>
             <th class="ck"><input id="selAll" type="checkbox" aria-label="전체 선택" title="전체 선택"></th>
-            <th>부재 번호</th><th>작업자</th><th>규격</th><th id="dateHead">날짜</th>
+            <th>발주사</th><th>부재 번호</th><th>작업자</th><th>규격</th><th id="dateHead">날짜</th>
           </tr></thead>
           <tbody id="jobs"></tbody>
         </table>
@@ -139,6 +146,6 @@
     </div>
   </main>
 </div>
-<script type="module" src="app.js?v=9"></script>
+<script type="module" src="app.js?v=10"></script>
 </body>
 </html>

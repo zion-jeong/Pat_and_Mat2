@@ -155,3 +155,6 @@ button.wide { display: block; width: 100%; margin: 4px 0 12px; min-height: 44px;
 .jtable td.mem b { margin-right: 6px; }
 .jtable td.date { color: var(--muted); font-size: 13px; }
 .jtable td.spec { color: var(--muted); }
+.row.even { grid-template-columns: 1fr 1fr; }
+.jtable td.cli { font-weight: 600; }
+.jtable tr.grp td { border-top: 2px solid var(--line); }
