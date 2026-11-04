@@ -1,0 +1,95 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>STEELCOAT 금지 영역</title>
+<meta name="description" content="H빔 KS 규격 선택과 3D 도장 금지 영역 지정, 작업 JSON 내보내기">
+<meta name="theme-color" content="#16191d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icons/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="stylesheet" href="style.css">
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.min.js" } }
+</script>
+</head>
+<body>
+<div class="app">
+  <aside class="panel">
+    <header class="brand">
+      <h1>STEELCOAT</h1>
+      <span>H빔 도장 금지 영역</span>
+      <button id="install" type="button" class="primary install" hidden>앱 설치</button>
+    </header>
+    <p id="iosHint" class="hint" hidden>iPad에서 앱으로 쓰려면 Safari 공유 버튼 → <b>홈 화면에 추가</b></p>
+
+    <section>
+      <h2>1. 부재</h2>
+      <label>부재 번호
+        <input id="member" type="text" placeholder="예: B-101" autocomplete="off">
+      </label>
+      <div class="row">
+        <label>호칭
+          <select id="nominal"></select>
+        </label>
+        <label>단면 (H×B×t₁×t₂)
+          <select id="section"></select>
+        </label>
+      </div>
+      <p id="specInfo" class="hint"></p>
+      <label>길이 (mm)
+        <input id="length" type="number" min="500" max="30000" step="10" value="6000">
+      </label>
+    </section>
+
+    <section>
+      <h2>2. 금지 영역</h2>
+      <div class="seg" role="group" aria-label="화면 조작">
+        <button id="modeView" type="button" aria-pressed="false">보기 (회전)</button>
+        <button id="modeDraw" type="button" aria-pressed="true">영역 그리기</button>
+      </div>
+      <label class="check"><input id="fullWidth" type="checkbox"> 면 폭 전체로 그리기</label>
+      <div class="row tight">
+        <button id="addAll" type="button" class="ghost">+ 전체 면 길이 구간</button>
+        <button id="undo" type="button" class="ghost">되돌리기</button>
+      </div>
+      <ol id="zones" class="zones"></ol>
+      <p id="zoneEmpty" class="hint">3D 화면의 면 위를 드래그하면 사각형 금지 영역이 추가됩니다.</p>
+    </section>
+
+    <section>
+      <h2>3. 승인 및 내보내기</h2>
+      <div id="stats" class="stats"></div>
+      <label>작업자
+        <input id="operator" type="text" placeholder="이름" autocomplete="off">
+      </label>
+      <label class="check"><input id="approved" type="checkbox"> 금지 영역을 확인했고 작업을 승인합니다</label>
+      <div class="row tight">
+        <button id="export" type="button" class="primary">JSON 내보내기</button>
+        <button id="import" type="button" class="ghost">불러오기</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p id="msg" class="msg" role="status"></p>
+    </section>
+
+    <footer class="hint small">
+      좌표: X 길이(0 = 시작단, 초록), Y 폭(+좌), Z 높이(0 = 하부 플랜지 아랫면), mm.
+      도장 대상은 플랜지 바깥·안쪽 면과 웹 양면 10개이며, 플랜지 두께면·필렛(r)은 형상에서 생략합니다.
+    </footer>
+  </aside>
+
+  <main class="view">
+    <canvas id="c"></canvas>
+    <div id="hud" class="hud"></div>
+    <div class="viewbtns">
+      <button type="button" data-view="iso">기본</button>
+      <button type="button" data-view="top">위</button>
+      <button type="button" data-view="side">옆</button>
+      <button type="button" data-view="end">단면</button>
+    </div>
+  </main>
+</div>
+<script type="module" src="app.js"></script>
+</body>
+</html>
