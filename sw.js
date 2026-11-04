@@ -1,5 +1,5 @@
 // 오프라인 사용을 위한 캐시. 파일을 바꾸면 VERSION을 올리세요.
-const VERSION = 'steelcoat-web-v4';
+const VERSION = 'steelcoat-web-v5';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'hbeam_specs.js', 'manifest.webmanifest',
   'vendor/three.module.min.js', 'vendor/OrbitControls.js',
@@ -16,7 +16,9 @@ self.addEventListener('activate', (e) => {
 // 네트워크 우선, 실패하면 캐시 (개발 중 수정 사항이 바로 보이도록)
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET') return;
-  e.respondWith(fetch(e.request)
+  if (new URL(e.request.url).origin !== location.origin) return;
+  // 브라우저 HTTP 캐시를 거치지 않고 항상 서버에 확인 → 예전 파일과 섞이지 않음
+  e.respondWith(fetch(e.request.url, { cache: 'no-cache' })
     .then((r) => { const copy = r.clone(); caches.open(VERSION).then((c) => c.put(e.request, copy)); return r; })
-    .catch(() => caches.match(e.request)));
+    .catch(() => caches.match(e.request, { ignoreSearch: true })));
 });
