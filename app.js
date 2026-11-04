@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { HBEAM_SPECS, HBEAM_SOURCE } from './hbeam_specs.js';
-import { createWork3D } from './work3d.js?v=15';
+import { createWork3D } from './work3d.js?v=16';
 
 const SNAP = 5;            // mm
 const MIN_SIZE = 10;       // mm, 이보다 작은 드래그는 무시
@@ -947,10 +947,10 @@ function renderWork() {
     ul.append(li);
   }
   const placed = jobs.filter((r) => r.placement);
-  $('startWork').hidden = w.state !== 'idle';
-  $('startWork').disabled = !placed.length;
-  $('startWork').textContent = placed.length ? `작업 시작 (${placed.length}개)` : '작업 시작';
-  $('robotDone').hidden = $('stopWork').hidden = w.state !== 'running';
+  $('startWork').disabled = w.state !== 'idle' || !placed.length;      // 시작·중지 버튼은 항상 나란히 표시
+  $('startWork').textContent = w.state === 'idle' && placed.length ? `작업 시작 (${placed.length}개)` : '작업 시작';
+  $('stopWork').disabled = w.state !== 'running';
+  $('robotDone').hidden = w.state !== 'running';
   $('confirmDone').hidden = w.state !== 'finished';
   drawPlan(jobs, w);
   if (planMode === '3d') work3d.update({
