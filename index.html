@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="style.css?v=6">
+<link rel="stylesheet" href="style.css?v=7">
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
 </script>
@@ -20,16 +20,13 @@
     <header class="brand">
       <h1>STEELCOAT</h1>
       <span>H빔 도장 금지 영역</span>
-      <button id="install" type="button" class="primary install" hidden>앱 설치</button>
     </header>
-    <p id="iosHint" class="hint" hidden>iPad에서 앱으로 쓰려면 Safari 공유 버튼 → <b>홈 화면에 추가</b></p>
-    <nav class="tabs" role="tablist">
-      <button type="button" role="tab" data-tab="edit" aria-selected="true">작업 편집</button>
-      <button type="button" role="tab" data-tab="list" aria-selected="false">저장 목록 <span id="listCount" class="count">0</span></button>
-    </nav>
 
-    <div id="tabEdit">
-    <p id="editing" class="editing"></p>
+    <div id="tabEdit" hidden>
+    <div class="editbar">
+      <button id="back" type="button" class="ghost">← 목록</button>
+      <p id="editing" class="editing"></p>
+    </div>
 
     <section>
       <h2>1. 부재</h2>
@@ -74,9 +71,19 @@
       </div>
       <p id="msg" class="msg" role="status"></p>
     </section>
+
+    <p class="hint small">
+      좌표: X 길이(0 = 시작단, 초록), Y 폭(+좌), Z 높이(0 = 하부 플랜지 아랫면), mm.
+      도장 대상은 플랜지 바깥·안쪽 면과 웹 양면 10개이며, 플랜지 두께면·필렛(r)은 형상에서 생략합니다.
+    </p>
     </div>
 
-    <div id="tabList" hidden>
+    <div id="tabList">
+      <nav class="tabs" role="tablist">
+        <button type="button" role="tab" data-list="todo" aria-selected="true">작업 목록 <span id="listCount" class="count">0</span></button>
+        <button type="button" role="tab" data-list="done" aria-selected="false">완료 목록 <span id="doneCount" class="count">0</span></button>
+      </nav>
+      <button id="addJob" type="button" class="primary wide">＋ 목록 추가</button>
       <section class="listtools">
         <input id="search" type="search" placeholder="부재 번호, 작업자, 규격 검색" autocomplete="off" aria-label="목록 검색">
         <div class="row">
@@ -94,6 +101,7 @@
       <p id="jobsEmpty" class="hint"></p>
       <div class="listactions">
         <button id="exportSel" type="button" class="primary" disabled>선택 JSON 내보내기</button>
+        <button id="doneSel" type="button" class="ghost" disabled>도장 완료 처리</button>
         <button id="deleteSel" type="button" class="ghost" disabled>선택 삭제</button>
         <button id="import" type="button" class="ghost">파일 가져오기</button>
         <input id="importFile" type="file" accept="application/json,.json" hidden>
@@ -102,9 +110,9 @@
       <p class="hint small">목록은 이 기기의 앱(브라우저)에 저장됩니다. 다른 기기로 옮기거나 백업하려면 내보낸 JSON을 그 기기에서 <b>파일 가져오기</b> 하세요.</p>
     </div>
 
-    <footer class="hint small">
-      좌표: X 길이(0 = 시작단, 초록), Y 폭(+좌), Z 높이(0 = 하부 플랜지 아랫면), mm.
-      도장 대상은 플랜지 바깥·안쪽 면과 웹 양면 10개이며, 플랜지 두께면·필렛(r)은 형상에서 생략합니다.
+    <footer class="installbar">
+      <button id="install" type="button" class="primary" hidden>앱 설치</button>
+      <p id="iosHint" class="hint" hidden>iPad에서 앱으로 쓰려면 Safari 공유 버튼 → <b>홈 화면에 추가</b></p>
     </footer>
   </aside>
 
@@ -126,6 +134,6 @@
     </div>
   </main>
 </div>
-<script type="module" src="app.js?v=6"></script>
+<script type="module" src="app.js?v=7"></script>
 </body>
 </html>
