@@ -144,3 +144,8 @@ button.wide { display: block; width: 100%; margin: 4px 0 12px; min-height: 44px;
 .installbar:has(> [hidden] + [hidden]) { display: none; }
 .installbar button { min-width: 160px; }
 .installbar .hint { margin: 0; }
+
+/* 목록 화면: 3D 없이 목록만 */
+.app.listmode { grid-template-columns: 1fr; grid-template-rows: none; height: auto; min-height: 100dvh; }
+.app.listmode .view { display: none; }
+.app.listmode .panel { border-right: 0; width: 100%; max-width: 880px; margin: 0 auto; min-height: 100dvh; overflow: visible; }

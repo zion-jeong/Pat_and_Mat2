@@ -187,7 +187,7 @@ function setView(kind) {
   const s = spec(), L = state.length;
   // 부재 전체가 화면 폭에 들어오는 거리
   const half = THREE.MathUtils.degToRad(camera.fov / 2);
-  const hHalf = Math.atan(Math.tan(half) * camera.aspect);
+  const hHalf = Math.atan(Math.tan(half) * (camera.aspect > 0.2 ? camera.aspect : 1.5));
   const d = Math.max((L * 0.58) / Math.tan(Math.min(half, hHalf)), s.H * 6);
   const t = new THREE.Vector3(0, 0, s.H / 2);
   const pos = {
@@ -634,7 +634,7 @@ function renderJobs() {
   ul.replaceChildren();
   const inMode = all.some((r) => !!r.completed_at === (listMode === 'done'));
   $('jobsEmpty').textContent = !inMode
-    ? (listMode === 'done' ? '도장 완료된 H빔이 없습니다.' : '작업이 없습니다. ＋ 목록 추가로 시작하세요.')
+    ? (listMode === 'done' ? '도장 완료된 H빔이 없습니다.' : '작업이 없습니다. ＋ 추가로 시작하세요.')
     : !rows.length ? '검색 결과가 없습니다.' : '';
   for (const r of rows) {
     const j = r.job;
@@ -744,6 +744,8 @@ $('doneSel').onclick = () => {
 
 // 화면: 'list' 목록 / 'edit' 편집
 function screen(name) {
+  document.querySelector('.app').classList.toggle('listmode', name === 'list');   // 목록 화면은 3D 숨김
+  if (name === 'edit') requestAnimationFrame(() => { resize(); setView('iso'); });
   $('tabEdit').hidden = name !== 'edit';
   $('tabList').hidden = name !== 'list';
   if (name === 'list') { renderJobs(); $('listMsg').textContent = ''; }
