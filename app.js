@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { HBEAM_SPECS, HBEAM_SOURCE } from './hbeam_specs.js';
-import { createWork3D } from './work3d.js?v=14';
+import { createWork3D } from './work3d.js?v=15';
 
 const SNAP = 5;            // mm
 const MIN_SIZE = 10;       // mm, 이보다 작은 드래그는 무시
@@ -786,12 +786,13 @@ function renderJobs() {
 function syncPick() {
   const rows = visibleJobs();
   const n = picked.size;
-  $('sendWork').hidden = listMode !== 'ready';
   $('import').hidden = listMode !== 'ready';
   $('backReady').hidden = listMode !== 'done';
-  $('exportSel').hidden = listMode !== 'done';
+  $('exportSel').hidden = true;                               // (완료 목록은 '작업 목록으로 보내기'로 대체)
+  $('sendWork').hidden = listMode === 'done' ? false : listMode !== 'ready';
   $('sendWork').disabled = $('backReady').disabled = $('exportSel').disabled = $('deleteSel').disabled = !n;
-  $('sendWork').textContent = n ? `${n}개 작업으로 보내기` : '작업으로 보내기';
+  const sendLabel = listMode === 'done' ? '작업 목록으로 보내기' : '작업으로 보내기';
+  $('sendWork').textContent = n ? `${n}개 ${sendLabel}` : sendLabel;
   $('exportSel').textContent = n ? `선택 ${n}개 JSON 내보내기` : '선택 JSON 내보내기';
   const vis = rows.filter((r) => picked.has(r.id)).length;
   $('selAll').checked = rows.length > 0 && vis === rows.length;
@@ -844,7 +845,7 @@ $('sendWork').onclick = () => {
   const already = sel.filter(inWork).length;
   const ok = sel.filter((r) => r.job.approved && !inWork(r)), no = sel.filter((r) => !r.job.approved).length;
   if (!ok.length) return msg(already ? '이미 작업 목록에 있습니다.' : '승인된 작업만 보낼 수 있습니다. 편집 화면에서 승인 후 저장하세요.', 'err', 'listMsg');
-  ok.forEach((r) => { r.work = true; r.stage = 'ready'; delete r.placement; });
+  ok.forEach((r) => { r.work = true; r.stage = 'ready'; delete r.completed_at; delete r.placement; });   // 완료 목록에서 보내면 재작업
   writeJobs(list); picked.clear(); renderJobs();
   msg(`${ok.length}개를 작업 목록으로 보냈습니다.${no ? ` 미승인 ${no}개는 보내지 않았습니다.` : ''}${already ? ` ${already}개는 이미 작업 목록에 있습니다.` : ''}`, 'ok', 'listMsg');
 };
@@ -981,7 +982,7 @@ function setPlanMode(m) {
   try { localStorage.setItem('steelcoat-planmode', m); } catch { /* 무시 */ }
   document.querySelectorAll('[data-pv]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.pv === m));
   $('c3').hidden = m !== '3d';
-  $('plan').hidden = m !== '2d';
+  $('plan').toggleAttribute('hidden', m !== '2d');   // SVG는 .hidden 속성이 없어 attribute로
   $('home3d').hidden = m !== '3d';
   work3d.setActive(m === '3d' && document.querySelector('.app').classList.contains('workmode'));
   if (listMode === 'work') renderWork();
@@ -1017,7 +1018,7 @@ function drawPlan(jobs, w) {
   t('로봇 시작', -16, 1.5 + 1.8);
   el('circle', { class: 'worker', cx: -3, cy: 13, r: 0.45 }, svg);
   t('작업자', -3, 13 + 1.5);
-  t('홀 안쪽 (+Y) →', VY[1], FACTORY.x[0] - 0.8, 'lbl', 'end');
+  t('홀 안쪽 (+Y) →', VY[1], FACTORY.x[1] + 1.4, 'lbl', 'end');
 
   const sel = jobs.find((r) => r.id === workSel);
   for (const st of STATIONS) {
