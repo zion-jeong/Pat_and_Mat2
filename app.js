@@ -497,16 +497,20 @@ addEventListener('keydown', (e) => {
   if (e.key === 'z' && (e.ctrlKey || e.metaKey)) $('undo').click();
 });
 
-// ---------- 내보내기 / 불러오기 ----------
+// ---------- 작업 데이터 ----------
+const JOBS_KEY = 'steelcoat-jobs-v1';
+let currentJobId = null;      // 목록에서 열었거나 저장한 작업
+
 function buildJob() {
   const s = spec();
   const round = (v) => Math.round(v * 10) / 10;
+  const approved = $('approved').checked;
   return {
     schema: 'steelcoat-job-v1',
     member: state.member || null,
-    approved: true,
+    approved,
     approved_by: $('operator').value.trim(),
-    approved_at: new Date().toISOString(),
+    approved_at: approved ? new Date().toISOString() : null,
     spec: specString(s),
     spec_ref: { standard: 'KS D 3502:2022', source: HBEAM_SOURCE, no: s.no, nominal: s.nominal, H: s.H, B: s.B, t1: s.t1, t2: s.t2, r: s.r, kg_m: s.kg_m },
     length_mm: state.length,
@@ -518,45 +522,22 @@ function buildJob() {
       : { face: z.face, start: round(z.start), end: round(z.end), axis: faceById(z.face).axis, from: round(z.from), to: round(z.to) }),
   };
 }
-function msg(t, kind = '') { const m = $('msg'); m.textContent = t; m.className = 'msg ' + kind; }
+function msg(t, kind = '', el = 'msg') { const m = $(el); m.textContent = t; m.className = 'msg ' + kind; }
 
-$('export').onclick = async () => {
-  if (!$('approved').checked) return msg('승인 체크 후 내보낼 수 있습니다.', 'err');
-  if (!$('operator').value.trim()) return msg('작업자 이름을 입력하세요.', 'err');
-  const bad = state.zones.find((z) => !(z.end > z.start) || (z.face !== 'all' && !(z.to > z.from)));
-  if (bad) return msg(`${state.zones.indexOf(bad) + 1}번 영역의 크기가 0입니다.`, 'err');
-  const job = buildJob();
-  const name = `${(state.member || 'job').replace(/[^\w\-가-힣]/g, '_')}_${new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '')}.json`;
-  const file = new File([JSON.stringify(job, null, 2)], name, { type: 'application/json' });
-  try {
-    if (navigator.canShare?.({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
-      await navigator.share({ files: [file], title: name });
-      return msg(`공유: ${name}`, 'ok');
-    }
-  } catch (e) { if (e.name === 'AbortError') return; }
-  const a = document.createElement('a');
-  a.href = URL.createObjectURL(file); a.download = name; a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
-  msg(`저장: ${name}`, 'ok');
-};
-
-$('import').onclick = () => $('importFile').click();
-$('importFile').onchange = async () => {
-  const f = $('importFile').files[0];
-  $('importFile').value = '';
-  if (!f) return;
-  try { loadJob(JSON.parse(await f.text())); msg(`불러옴: ${f.name}`, 'ok'); }
-  catch (e) { msg(`불러오기 실패: ${e.message}`, 'err'); }
-};
-
-function loadJob(j) {
+// 파일·목록의 작업이 KS 규격표에 맞는지 확인하고 규격 항목을 찾음
+function specOf(j) {
   let s = j.spec_ref?.no && HBEAM_SPECS.find((x) => x.no === j.spec_ref.no);
   if (!s && typeof j.spec === 'string') {
     const n = j.spec.match(/[\d.]+/g)?.map(Number) || [];
     s = HBEAM_SPECS.find((x) => x.H === n[0] && x.B === n[1] && x.t1 === n[2] && x.t2 === n[3]);
   }
-  if (!s) throw new Error('KS 규격표에 없는 단면입니다');
-  if (!(j.length_mm > 0)) throw new Error('length_mm 없음');
+  if (!s) throw new Error(`${j.member || '작업'}: KS 규격표에 없는 단면`);
+  if (!(j.length_mm > 0)) throw new Error(`${j.member || '작업'}: length_mm 없음`);
+  return s;
+}
+
+function loadJob(j) {
+  const s = specOf(j);
   state.specNo = s.no;
   state.length = clamp(Math.round(j.length_mm), 500, 30000);
   state.member = j.member || '';
@@ -565,14 +546,194 @@ function loadJob(j) {
     ...(z.face ? { from: z.from, to: z.to } : {}),
   }));
   state.selected = null;
+  $('operator').value = j.approved_by || $('operator').value;
+  $('approved').checked = j.approved === true;
   syncInputs();
   specChanged(true);
 }
 
+// ---------- 저장 목록 (이 기기) ----------
+function readJobs() {
+  try { return JSON.parse(localStorage.getItem(JOBS_KEY) || '[]'); } catch { return []; }
+}
+function writeJobs(list) {
+  try { localStorage.setItem(JOBS_KEY, JSON.stringify(list)); return true; }
+  catch { return false; }
+}
+const sameMember = (a, b) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
+const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+
+$('save').onclick = () => {
+  if (!state.member) return msg('부재 번호를 입력하세요.', 'err');
+  if (!$('operator').value.trim()) return msg('작업자 이름을 입력하세요.', 'err');
+  const bad = state.zones.find((z) => !(z.end > z.start) || (z.face !== 'all' && !(z.to > z.from)));
+  if (bad) return msg(`${state.zones.indexOf(bad) + 1}번 영역의 크기가 0입니다.`, 'err');
+  const list = readJobs();
+  let rec = list.find((r) => r.id === currentJobId);
+  if (rec && !sameMember(rec.job.member, state.member)) rec = null;       // 부재 번호를 바꾸면 새 항목
+  if (!rec) {
+    const dup = list.find((r) => sameMember(r.job.member, state.member));
+    if (dup) {
+      if (!confirm(`부재 ${state.member}이(가) 목록에 이미 있습니다. 덮어쓸까요?`)) return;
+      rec = dup;
+    }
+  }
+  const prev = rec && rec.job.approved ? rec.job.approved_at : null;
+  const job = buildJob();
+  if (job.approved && prev) job.approved_at = prev;                       // 승인 시각 유지
+  if (rec) { rec.job = job; rec.saved_at = new Date().toISOString(); }
+  else { rec = { id: newId(), saved_at: new Date().toISOString(), job }; list.push(rec); }
+  if (!writeJobs(list)) return msg('저장 공간이 부족해 저장하지 못했습니다.', 'err');
+  currentJobId = rec.id;
+  saveDraft(); renderJobs(); showEditing();
+  msg(`저장했습니다: ${state.member}${job.approved ? '' : ' (미승인)'}`, 'ok');
+};
+
+$('newJob').onclick = () => {
+  currentJobId = null;
+  state.member = ''; state.zones = []; state.selected = null;
+  $('approved').checked = false;
+  syncInputs(); changed(); showEditing();
+  $('member').focus();
+};
+
+function showEditing() {
+  const rec = currentJobId && readJobs().find((r) => r.id === currentJobId);
+  $('editing').innerHTML = rec ? `저장된 작업 편집 중: <b>${esc(rec.job.member)}</b>` : '새 작업';
+}
+const esc = (t) => String(t ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+function hl(text, q) {
+  const t = esc(text);
+  if (!q) return t;
+  const i = t.toLowerCase().indexOf(esc(q).toLowerCase());
+  return i < 0 ? t : `${t.slice(0, i)}<mark>${t.slice(i, i + q.length)}</mark>${t.slice(i + q.length)}`;
+}
+
+const picked = new Set();
+function visibleJobs() {
+  const q = $('search').value.trim().toLowerCase();
+  const by = $('sort').value;
+  const nat = (a, b) => (a || '').localeCompare(b || '', 'ko', { numeric: true, sensitivity: 'base' });
+  return readJobs()
+    .filter((r) => !q || [r.job.member, r.job.approved_by, r.job.spec, r.job.spec_ref?.nominal]
+      .some((v) => (v || '').toLowerCase().includes(q)))
+    .sort((a, b) => by === 'recent' ? b.saved_at.localeCompare(a.saved_at)
+      : by === 'spec' ? (a.job.spec_ref?.no ?? 999) - (b.job.spec_ref?.no ?? 999) || nat(a.job.member, b.job.member)
+      : nat(a.job.member, b.job.member));
+}
+function renderJobs() {
+  const all = readJobs();
+  $('listCount').textContent = all.length;
+  for (const id of [...picked]) if (!all.some((r) => r.id === id)) picked.delete(id);
+  const rows = visibleJobs(), q = $('search').value.trim();
+  const ul = $('jobs');
+  ul.replaceChildren();
+  $('jobsEmpty').textContent = !all.length ? '저장된 작업이 없습니다. 작업 편집에서 저장하세요.'
+    : !rows.length ? '검색 결과가 없습니다.' : '';
+  for (const r of rows) {
+    const j = r.job, d = new Date(r.saved_at);
+    const li = document.createElement('li');
+    li.className = 'job' + (r.id === currentJobId ? ' cur' : '');
+    li.innerHTML = `<label><input type="checkbox" aria-label="선택"${picked.has(r.id) ? ' checked' : ''}></label>
+      <button type="button" class="open">
+        <div class="l1"><b>${hl(j.member, q)}</b><span>${hl(j.spec, q)}</span>
+          <em class="badge ${j.approved ? 'ok' : 'no'}">${j.approved ? '승인' : '미승인'}</em></div>
+        <div class="l2">${j.length_mm} mm · 금지 영역 ${j.exclusion_zones.length}개 · ${hl(j.approved_by, q)} · ${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}</div>
+      </button>`;
+    li.querySelector('input').onchange = (e) => { e.target.checked ? picked.add(r.id) : picked.delete(r.id); syncPick(); };
+    li.querySelector('.open').onclick = () => {
+      try { loadJob(r.job); currentJobId = r.id; saveDraft(); showEditing(); tab('edit'); msg(`불러옴: ${j.member}`, 'ok'); }
+      catch (e) { msg(e.message, 'err', 'listMsg'); }
+    };
+    ul.append(li);
+  }
+  syncPick();
+}
+function syncPick() {
+  const rows = visibleJobs();
+  const n = picked.size;
+  $('exportSel').disabled = $('deleteSel').disabled = !n;
+  $('exportSel').textContent = n ? `선택 ${n}개 JSON 내보내기` : '선택 JSON 내보내기';
+  const vis = rows.filter((r) => picked.has(r.id)).length;
+  $('selAll').checked = rows.length > 0 && vis === rows.length;
+  $('selAll').indeterminate = vis > 0 && vis < rows.length;
+}
+$('search').oninput = renderJobs;
+$('sort').onchange = renderJobs;
+$('selAll').onchange = () => {
+  const rows = visibleJobs();
+  rows.forEach((r) => ($('selAll').checked ? picked.add(r.id) : picked.delete(r.id)));
+  renderJobs();
+};
+$('deleteSel').onclick = () => {
+  if (!confirm(`선택한 ${picked.size}개 작업을 목록에서 삭제할까요?`)) return;
+  writeJobs(readJobs().filter((r) => !picked.has(r.id)));
+  if (picked.has(currentJobId)) currentJobId = null;
+  picked.clear(); renderJobs(); showEditing();
+  msg('삭제했습니다.', 'ok', 'listMsg');
+};
+
+async function deliver(obj, name, el) {
+  const file = new File([JSON.stringify(obj, null, 2)], name, { type: 'application/json' });
+  try {
+    if (navigator.canShare?.({ files: [file] }) && matchMedia('(pointer: coarse)').matches) {
+      await navigator.share({ files: [file], title: name });
+      return msg(`공유: ${name}`, 'ok', el);
+    }
+  } catch (e) { if (e.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(file); a.download = name; a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 2000);
+  msg(`내보냄: ${name}`, 'ok', el);
+}
+$('exportSel').onclick = () => {
+  const order = visibleJobs().map((r) => r.id);
+  const recs = readJobs().filter((r) => picked.has(r.id))
+    .sort((a, b) => (order.indexOf(a.id) + 1 || 1e9) - (order.indexOf(b.id) + 1 || 1e9));
+  const un = recs.filter((r) => !r.job.approved).length;
+  if (un && !confirm(`미승인 작업 ${un}개가 포함되어 있습니다. 미승인 작업은 경로 생성에서 거부됩니다. 계속할까요?`)) return;
+  const stamp = new Date().toISOString().slice(0, 16).replace(/[-:T]/g, '');
+  deliver({ schema: 'steelcoat-job-batch-v1', exported_at: new Date().toISOString(), count: recs.length, jobs: recs.map((r) => r.job) },
+    `steelcoat_jobs_${stamp}_${recs.length}.json`, 'listMsg');
+};
+
+// 단일 작업 JSON 또는 묶음 JSON을 목록에 추가
+$('import').onclick = () => $('importFile').click();
+$('importFile').onchange = async () => {
+  const f = $('importFile').files[0];
+  $('importFile').value = '';
+  if (!f) return;
+  try {
+    const d = JSON.parse(await f.text());
+    const jobs = Array.isArray(d.jobs) ? d.jobs : [d];
+    jobs.forEach(specOf);
+    const list = readJobs();
+    const dups = jobs.filter((j) => list.some((r) => sameMember(r.job.member, j.member)));
+    const over = dups.length ? confirm(`같은 부재 번호 ${dups.length}개가 이미 있습니다. 덮어쓸까요? (취소 = 건너뛰기)`) : false;
+    let added = 0, replaced = 0;
+    for (const j of jobs) {
+      const old = list.find((r) => sameMember(r.job.member, j.member));
+      if (old) { if (over) { old.job = j; old.saved_at = new Date().toISOString(); replaced++; } }
+      else { list.push({ id: newId(), saved_at: new Date().toISOString(), job: j }); added++; }
+    }
+    if (!writeJobs(list)) throw new Error('저장 공간 부족');
+    renderJobs();
+    msg(`가져옴: 추가 ${added}개${replaced ? `, 덮어씀 ${replaced}개` : ''}${dups.length && !over ? `, 건너뜀 ${dups.length}개` : ''}`, 'ok', 'listMsg');
+  } catch (e) { msg(`가져오기 실패: ${e.message}`, 'err', 'listMsg'); }
+};
+
+function tab(name) {
+  document.querySelectorAll('[data-tab]').forEach((b) => b.setAttribute('aria-selected', b.dataset.tab === name));
+  $('tabEdit').hidden = name !== 'edit';
+  $('tabList').hidden = name !== 'list';
+  if (name === 'list') renderJobs();
+}
+document.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => tab(b.dataset.tab)));
+
 // ---------- 임시 저장 ----------
 function saveDraft() {
   try {
-    localStorage.setItem(DRAFT_KEY, JSON.stringify({ specNo: state.specNo, length: state.length, member: state.member, zones: state.zones, operator: $('operator').value }));
+    localStorage.setItem(DRAFT_KEY, JSON.stringify({ specNo: state.specNo, length: state.length, member: state.member, zones: state.zones, operator: $('operator').value, approved: $('approved').checked, jobId: currentJobId }));
   } catch { /* 저장 불가 환경 */ }
 }
 function loadDraft() {
@@ -582,9 +743,12 @@ function loadDraft() {
     Object.assign(state, { specNo: d.specNo, length: d.length, member: d.member || '', zones: d.zones || [] });
     nextId = Math.max(0, ...state.zones.map((z) => z.id)) + 1;
     $('operator').value = d.operator || '';
+    $('approved').checked = d.approved === true;
+    currentJobId = d.jobId || null;
   } catch { /* 무시 */ }
 }
 $('operator').oninput = saveDraft;
+$('approved').onchange = saveDraft;
 function syncInputs() {
   $('length').value = state.length;
   $('member').value = state.member;
@@ -598,6 +762,8 @@ applyTheme();
 resize();
 setMode('view');
 specChanged(true);
+renderJobs();
+showEditing();
 
 // ---------- 앱 설치 ----------
 let installEvt = null;

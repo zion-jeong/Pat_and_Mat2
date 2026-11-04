@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="style.css?v=5">
+<link rel="stylesheet" href="style.css?v=6">
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
 </script>
@@ -23,6 +23,13 @@
       <button id="install" type="button" class="primary install" hidden>앱 설치</button>
     </header>
     <p id="iosHint" class="hint" hidden>iPad에서 앱으로 쓰려면 Safari 공유 버튼 → <b>홈 화면에 추가</b></p>
+    <nav class="tabs" role="tablist">
+      <button type="button" role="tab" data-tab="edit" aria-selected="true">작업 편집</button>
+      <button type="button" role="tab" data-tab="list" aria-selected="false">저장 목록 <span id="listCount" class="count">0</span></button>
+    </nav>
+
+    <div id="tabEdit">
+    <p id="editing" class="editing"></p>
 
     <section>
       <h2>1. 부재</h2>
@@ -55,19 +62,45 @@
     </section>
 
     <section>
-      <h2>3. 승인 및 내보내기</h2>
+      <h2>3. 승인 및 저장</h2>
       <div id="stats" class="stats"></div>
       <label>작업자
         <input id="operator" type="text" placeholder="이름" autocomplete="off">
       </label>
       <label class="check"><input id="approved" type="checkbox"> 금지 영역을 확인했고 작업을 승인합니다</label>
       <div class="row tight">
-        <button id="export" type="button" class="primary">JSON 내보내기</button>
-        <button id="import" type="button" class="ghost">불러오기</button>
-        <input id="importFile" type="file" accept="application/json,.json" hidden>
+        <button id="save" type="button" class="primary">저장</button>
+        <button id="newJob" type="button" class="ghost">새 작업</button>
       </div>
       <p id="msg" class="msg" role="status"></p>
     </section>
+    </div>
+
+    <div id="tabList" hidden>
+      <section class="listtools">
+        <input id="search" type="search" placeholder="부재 번호, 작업자, 규격 검색" autocomplete="off" aria-label="목록 검색">
+        <div class="row">
+          <label>정렬
+            <select id="sort">
+              <option value="member">부재 번호 순</option>
+              <option value="spec">H빔 규격(KS 번호) 순</option>
+              <option value="recent">최근 저장 순</option>
+            </select>
+          </label>
+          <label class="check selall"><input id="selAll" type="checkbox"> 전체 선택</label>
+        </div>
+      </section>
+      <ul id="jobs" class="jobs"></ul>
+      <p id="jobsEmpty" class="hint"></p>
+      <div class="listactions">
+        <button id="exportSel" type="button" class="primary" disabled>선택 JSON 내보내기</button>
+        <button id="deleteSel" type="button" class="ghost" disabled>선택 삭제</button>
+        <button id="import" type="button" class="ghost">파일 가져오기</button>
+        <input id="importFile" type="file" accept="application/json,.json" hidden>
+      </div>
+      <p id="listMsg" class="msg" role="status"></p>
+      <p class="hint small">목록은 이 기기의 앱(브라우저)에 저장됩니다. 다른 기기로 옮기거나 백업하려면 내보낸 JSON을 그 기기에서 <b>파일 가져오기</b> 하세요.</p>
+    </div>
 
     <footer class="hint small">
       좌표: X 길이(0 = 시작단, 초록), Y 폭(+좌), Z 높이(0 = 하부 플랜지 아랫면), mm.
@@ -93,6 +126,6 @@
     </div>
   </main>
 </div>
-<script type="module" src="app.js?v=5"></script>
+<script type="module" src="app.js?v=6"></script>
 </body>
 </html>

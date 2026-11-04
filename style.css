@@ -110,3 +110,27 @@ button.ghost { background: transparent; }
 .toolbar button:hover { background: var(--field); }
 .toolbar button[aria-pressed=true] { background: var(--ink); color: var(--panel); }
 .toolbar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+
+.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--field); padding: 3px; border-radius: 10px; margin: 6px 0 8px; }
+.tabs button { border: 0; background: transparent; min-height: 36px; border-radius: 8px; color: var(--muted); }
+.tabs button[aria-selected=true] { background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.count { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--line); color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; }
+.editing { margin: 0 0 4px; font-size: 13px; color: var(--muted); min-height: 1.2em; }
+.editing b { color: var(--ink); }
+.listtools { border-top: 0; padding-top: 4px; }
+.listtools input[type=search] { display: block; width: 100%; padding: 9px 10px; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink); font: inherit; margin-bottom: 8px; }
+.selall { align-self: end; margin-bottom: 18px; }
+.jobs { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 6px; }
+.job { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
+.job.cur { border-color: var(--accent); }
+.job > label { display: flex; align-items: center; padding: 0 10px; margin: 0; }
+.job .open { flex: 1; text-align: left; border: 0; background: transparent; padding: 8px 10px 8px 0; min-height: 52px; border-radius: 0 8px 8px 0; }
+.job .l1 { display: flex; gap: 8px; align-items: baseline; }
+.job .l1 b { font-size: 15px; }
+.job .l1 span { font-size: 13px; color: var(--muted); }
+.job .l2 { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.badge { font-style: normal; margin-left: auto; font-size: 11px; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
+.badge.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
+.badge.no { background: var(--line); color: var(--muted); }
+mark { background: color-mix(in srgb, var(--accent) 30%, transparent); color: inherit; border-radius: 2px; }
+.listactions { display: flex; flex-wrap: wrap; gap: 8px; }
