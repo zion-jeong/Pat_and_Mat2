@@ -111,7 +111,7 @@ button.ghost { background: transparent; }
 .toolbar button[aria-pressed=true] { background: var(--ink); color: var(--panel); }
 .toolbar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 
-.tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; background: var(--field); padding: 3px; border-radius: 10px; margin: 6px 0 8px; }
+.tabs { display: grid; grid-template-columns: 1fr 1.4fr 1fr; gap: 4px; background: var(--field); padding: 3px; border-radius: 10px; margin: 6px 0 8px; }
 .tabs button { border: 0; background: transparent; min-height: 36px; border-radius: 8px; color: var(--muted); }
 .tabs button[aria-selected=true] { background: var(--panel); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
 .count { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--line); color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; }
@@ -133,9 +133,13 @@ button.wide { display: block; width: 100%; margin: 4px 0 12px; min-height: 44px;
 .installbar button { min-width: 160px; }
 .installbar .hint { margin: 0; }
 
-/* 목록 화면: 3D 없이 목록만 */
+/* 화면 모드: 목록(패널만) / 편집(패널 + 3D) / 작업(패널 + 배치도) */
+#planView { display: none; }
+.app.workmode #view3d { display: none; }
+.app.workmode #planView { display: block; }
+.app.workmode { grid-template-columns: 400px 1fr; }
 .app.listmode { grid-template-columns: 1fr; grid-template-rows: none; height: auto; min-height: 100dvh; }
-.app.listmode .view { display: none; }
+.app.listmode .view { display: none !important; }
 .app.listmode .panel { border-right: 0; width: 100%; max-width: 880px; margin: 0 auto; min-height: 100dvh; overflow: visible; }
 
 .searchbar { display: flex; gap: 6px; margin-bottom: 10px; }
@@ -158,3 +162,60 @@ button.wide { display: block; width: 100%; margin: 4px 0 12px; min-height: 44px;
 .row.even { grid-template-columns: 1fr 1fr; }
 .jtable td.cli { color: var(--ink); }
 .jtable tr.grp td { border-top: 2px solid var(--line); }
+
+.tabs button { display: inline-flex; align-items: center; justify-content: center; gap: 5px; flex-wrap: wrap; padding: 4px 6px; }
+.wstat { font-size: 11px; font-weight: 600; padding: 1px 8px; border-radius: 10px; white-space: nowrap; }
+.wstat.idle { background: var(--line); color: var(--muted); }
+.wstat.ready { background: color-mix(in srgb, #3a8dde 20%, transparent); color: #2f74b8; }
+.wstat.running { background: color-mix(in srgb, var(--accent) 22%, transparent); color: var(--accent); }
+.wstat.finished { background: color-mix(in srgb, var(--ok) 20%, transparent); color: var(--ok); }
+.wstat.running::before { content: ""; display: inline-block; width: 6px; height: 6px; border-radius: 50%; background: currentColor; margin-right: 5px; vertical-align: 1px; animation: blink 1s infinite; }
+@keyframes blink { 50% { opacity: .2; } }
+.statusbox { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border: 1px solid var(--line); border-radius: 10px; margin: 4px 0 10px; }
+.statusbox .wstat { font-size: 14px; padding: 4px 12px; }
+.statusbox p { margin: 0; font-size: 13px; color: var(--muted); }
+.wjobs { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 6px; }
+.wjob { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; cursor: pointer; background: var(--panel); }
+.wjob.sel { border-color: var(--accent); box-shadow: 0 0 0 1px var(--accent); }
+.wjob .t { display: flex; align-items: baseline; gap: 8px; }
+.wjob .t b { font-size: 15px; }
+.wjob .t .pos { margin-left: auto; font-size: 12px; font-weight: 600; white-space: nowrap; }
+.wjob .t .pos.on { color: var(--ok); }
+.wjob .t .pos.off { color: var(--muted); }
+.wjob .s { font-size: 12px; color: var(--muted); margin-top: 2px; }
+.wjob .acts { display: none; gap: 6px; margin-top: 8px; flex-wrap: wrap; }
+.wjob.sel .acts { display: flex; }
+.wjob .acts button { min-height: 34px; padding: 4px 10px; font-size: 13px; }
+.wjob.run { border-left: 4px solid var(--accent); }
+.wjob.lock { cursor: default; }
+.listactions button[hidden] { display: none; }
+
+.planview { background: var(--view-bg); }
+#plan { display: block; width: 100%; height: 100%; touch-action: none; user-select: none; -webkit-user-select: none; }
+#plan .floor { fill: var(--panel); stroke: var(--muted); stroke-width: .12; }
+#plan .apron { fill: none; stroke: var(--line); stroke-width: .1; stroke-dasharray: .6 .4; }
+#plan .band { fill: var(--field); }
+#plan .band.target { fill: color-mix(in srgb, var(--accent) 12%, var(--field)); }
+#plan .saddle { fill: #8b939b; }
+#plan .slabel { font-size: 1.1px; font-weight: 700; fill: var(--muted); }
+#plan .lbl { font-size: .9px; fill: var(--muted); }
+#plan .entr { stroke: var(--accent); stroke-width: .25; stroke-dasharray: .8 .5; }
+#plan .add circle { fill: var(--panel); stroke: var(--accent); stroke-width: .14; }
+#plan .add path { stroke: var(--accent); stroke-width: .2; stroke-linecap: round; }
+#plan .add { cursor: pointer; }
+#plan .add:hover circle { fill: color-mix(in srgb, var(--accent) 15%, var(--panel)); }
+#plan .beam rect.body { fill: #6f7880; stroke: #3b4148; stroke-width: .06; }
+#plan .beam.sel rect.body { fill: var(--accent); stroke: var(--accent); }
+#plan .beam.run rect.body { fill: #c2681f; }
+#plan .beam { cursor: grab; }
+#plan .beam.lock { cursor: default; }
+#plan .beam .start { fill: #2f8a4a; }
+#plan .beam text { font-size: .85px; font-weight: 700; fill: var(--ink); }
+#plan .robot { fill: #3a8dde; }
+#plan .supply { fill: #c9a227; }
+#plan .worker { fill: #e2b13c; stroke: #8a6a16; stroke-width: .08; }
+#plan .grid { stroke: var(--line); stroke-width: .03; }
+@media (max-width: 820px) {
+  .app.workmode { grid-template-columns: 1fr; grid-template-rows: 55dvh auto; height: auto; }
+  .app.workmode #planView { grid-row: 1; height: 55dvh; position: sticky; top: 0; z-index: 1; }
+}

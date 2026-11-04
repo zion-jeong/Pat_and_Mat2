@@ -9,7 +9,7 @@
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icons/icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icons/icon-192.png">
-<link rel="stylesheet" href="style.css?v=11">
+<link rel="stylesheet" href="style.css?v=13">
 <script type="importmap">
 { "imports": { "three": "./vendor/three.module.min.js" } }
 </script>
@@ -86,9 +86,11 @@
 
     <div id="tabList">
       <nav class="tabs" role="tablist">
-        <button type="button" role="tab" data-list="todo" aria-selected="true">작업 목록 <span id="listCount" class="count">0</span></button>
+        <button type="button" role="tab" data-list="ready" aria-selected="true">준비 목록 <span id="listCount" class="count">0</span></button>
+        <button type="button" role="tab" data-list="work" aria-selected="false">작업 목록 <span id="workStatus" class="wstat idle">작업 대기</span> <span id="workCount" class="count">0</span></button>
         <button type="button" role="tab" data-list="done" aria-selected="false">완료 목록 <span id="doneCount" class="count">0</span></button>
       </nav>
+      <div id="listPane">
       <button id="addJob" type="button" class="primary wide">＋ 추가</button>
       <form id="searchForm" class="searchbar" role="search">
         <input id="search" type="search" placeholder="발주사, 부재 번호, 작업자, 규격 검색" autocomplete="off" aria-label="목록 검색">
@@ -112,14 +114,30 @@
       </div>
       <p id="jobsEmpty" class="hint"></p>
       <div class="listactions">
-        <button id="exportSel" type="button" class="primary" disabled>선택 JSON 내보내기</button>
-        <button id="doneSel" type="button" class="ghost" disabled>도장 완료 처리</button>
+        <button id="sendWork" type="button" class="primary" disabled>작업으로 보내기</button>
+        <button id="backReady" type="button" class="ghost" disabled>준비 목록으로 되돌리기</button>
+        <button id="exportSel" type="button" class="ghost" disabled>선택 JSON 내보내기</button>
         <button id="deleteSel" type="button" class="ghost" disabled>선택 삭제</button>
         <button id="import" type="button" class="ghost">파일 가져오기</button>
         <input id="importFile" type="file" accept="application/json,.json" hidden>
       </div>
       <p id="listMsg" class="msg" role="status"></p>
       <p class="hint small">목록은 이 기기의 앱(브라우저)에 저장됩니다. 다른 기기로 옮기거나 백업하려면 내보낸 JSON을 그 기기에서 <b>파일 가져오기</b> 하세요.</p>
+      </div>
+
+      <div id="workPane" hidden>
+        <div id="statusBox" class="statusbox"></div>
+        <p class="hint">H빔을 고른 뒤 배치도의 <b>＋</b>를 누르면 그 받침대에 놓입니다. 놓인 빔은 길이 방향으로 끌어서 옮길 수 있습니다.</p>
+        <ul id="workJobs" class="wjobs"></ul>
+        <p id="workEmpty" class="hint"></p>
+        <div class="listactions">
+          <button id="startWork" type="button" class="primary">작업 시작</button>
+          <button id="robotDone" type="button" class="ghost" title="로봇 연결 전 임시 버튼">로봇 작업 끝 (임시)</button>
+          <button id="stopWork" type="button" class="ghost">작업 중지</button>
+          <button id="confirmDone" type="button" class="primary">작업 완료 확인</button>
+        </div>
+        <p id="workMsg" class="msg" role="status"></p>
+      </div>
     </div>
 
     <footer class="installbar">
@@ -128,7 +146,12 @@
     </footer>
   </aside>
 
-  <main class="view">
+  <main id="planView" class="view planview">
+    <svg id="plan" role="img" aria-label="Gazebo 공장 빔 배치도"></svg>
+    <div id="planHud" class="hud"></div>
+  </main>
+
+  <main id="view3d" class="view">
     <canvas id="c"></canvas>
     <div id="hud" class="hud"></div>
     <div class="toolbar" role="toolbar" aria-label="화면 조작">
@@ -146,6 +169,6 @@
     </div>
   </main>
 </div>
-<script type="module" src="app.js?v=11"></script>
+<script type="module" src="app.js?v=13"></script>
 </body>
 </html>
