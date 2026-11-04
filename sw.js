@@ -1,5 +1,5 @@
 // 오프라인 사용을 위한 캐시. 파일을 바꾸면 VERSION을 올리세요.
-const VERSION = 'steelcoat-web-v8';
+const VERSION = 'steelcoat-web-v9';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'hbeam_specs.js', 'manifest.webmanifest',
   'vendor/three.module.min.js', 'vendor/OrbitControls.js',

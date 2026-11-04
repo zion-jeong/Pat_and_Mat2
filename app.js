@@ -560,6 +560,41 @@ function writeJobs(list) {
   try { localStorage.setItem(JOBS_KEY, JSON.stringify(list)); return true; }
   catch { return false; }
 }
+// 처음 실행(저장 목록이 아예 없을 때)만 예시 데이터를 넣음. 목록에서 삭제 가능.
+function seedSamples() {
+  try { if (localStorage.getItem(JOBS_KEY) !== null) return; } catch { return; }
+  const day = (d, h) => { const t = new Date(); t.setDate(t.getDate() - d); t.setHours(h, (d * 17) % 60, 0, 0); return t.toISOString(); };
+  const mk = (member, no, len, op, approved, zones, saved, done) => {
+    const sp = HBEAM_SPECS.find((x) => x.no === no);
+    const f = faces(sp);
+    return {
+      id: newId(), saved_at: day(saved, 10), ...(done != null ? { completed_at: day(done, 16) } : {}),
+      job: {
+        schema: 'steelcoat-job-v1', member, approved, approved_by: op, approved_at: approved ? day(saved, 10) : null,
+        spec: specString(sp),
+        spec_ref: { standard: 'KS D 3502:2022', source: HBEAM_SOURCE, no: sp.no, nominal: sp.nominal, H: sp.H, B: sp.B, t1: sp.t1, t2: sp.t2, r: sp.r, kg_m: sp.kg_m },
+        length_mm: len, frame: 'member_local_mm: X=길이(0=시작단), Y=폭(+좌, 웹 중심 0), Z=높이(0=하부 플랜지 아랫면)',
+        exclusion_zones: zones.map(([face, a, b2, u0, u1]) => {
+          if (face === 'all') return { start: a, end: b2 };
+          const ff = f.find((x) => x.id === face);
+          return { face, start: a, end: b2, axis: ff.axis, from: u0 ?? ff.lo, to: u1 ?? ff.hi };
+        }),
+      },
+    };
+  };
+  const ends = (L) => [['all', 0, 250], ['all', L - 250, L]];
+  const list = [
+    mk('B-101', 45, 6000, '홍길동', true, [...ends(6000), ['top_outer', 2900, 3100, -60, 60]], 3),
+    mk('B-102', 45, 6000, '홍길동', true, [...ends(6000), ['web_left', 1500, 1700], ['web_right', 1500, 1700]], 3),
+    mk('B-103', 29, 8000, '김철수', true, [...ends(8000), ['bottom_outer', 3800, 4200]], 2),
+    mk('B-104', 24, 6000, '김철수', false, ends(6000), 1),
+    mk('B-201', 67, 10000, '이영희', true, [...ends(10000), ['top_outer', 4900, 5100, -100, 100], ['bottom_outer', 4900, 5100]], 1),
+    mk('B-202', 72, 12000, '이영희', true, ends(12000), 5, 2),
+    mk('B-203', 21, 6000, '박민수', true, [...ends(6000), ['web_left', 2800, 3200, 100, 150]], 6, 4),
+    mk('C-301', 11, 4000, '박민수', false, [['all', 0, 150]], 0),
+  ];
+  writeJobs(list);
+}
 const sameMember = (a, b) => (a || '').trim().toLowerCase() === (b || '').trim().toLowerCase();
 const newId = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 
@@ -611,9 +646,11 @@ function hl(text, q) {
 
 const picked = new Set();
 let listMode = 'todo';         // 'todo' 작업 목록 / 'done' 도장 완료 목록
+const fmtDate = (iso) => { const d = new Date(iso), z = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}.${z(d.getMonth() + 1)}.${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; };
 const fmt = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+let appliedQ = '';             // 돋보기(또는 Enter)로 적용한 검색어
 function visibleJobs() {
-  const q = $('search').value.trim().toLowerCase();
+  const q = appliedQ.toLowerCase();
   const by = $('sort').value;
   const nat = (a, b) => (a || '').localeCompare(b || '', 'ko', { numeric: true, sensitivity: 'base' });
   return readJobs()
@@ -621,6 +658,7 @@ function visibleJobs() {
     .filter((r) => !q || [r.job.member, r.job.approved_by, r.job.spec, r.job.spec_ref?.nominal]
       .some((v) => (v || '').toLowerCase().includes(q)))
     .sort((a, b) => by === 'recent' ? (b.completed_at || b.saved_at).localeCompare(a.completed_at || a.saved_at)
+      : by === 'operator' ? nat(a.job.approved_by, b.job.approved_by) || nat(a.job.member, b.job.member)
       : by === 'spec' ? (a.job.spec_ref?.no ?? 999) - (b.job.spec_ref?.no ?? 999) || nat(a.job.member, b.job.member)
       : nat(a.job.member, b.job.member));
 }
@@ -629,30 +667,34 @@ function renderJobs() {
   $('listCount').textContent = all.filter((r) => !r.completed_at).length;
   $('doneCount').textContent = all.filter((r) => r.completed_at).length;
   for (const id of [...picked]) if (!all.some((r) => r.id === id)) picked.delete(id);
-  const rows = visibleJobs(), q = $('search').value.trim();
-  const ul = $('jobs');
-  ul.replaceChildren();
+  const rows = visibleJobs(), q = appliedQ;
+  const tb = $('jobs');
+  tb.replaceChildren();
+  $('dateHead').textContent = listMode === 'done' ? '완료 날짜' : '저장 날짜';
   const inMode = all.some((r) => !!r.completed_at === (listMode === 'done'));
   $('jobsEmpty').textContent = !inMode
     ? (listMode === 'done' ? '도장 완료된 H빔이 없습니다.' : '작업이 없습니다. ＋ 추가로 시작하세요.')
     : !rows.length ? '검색 결과가 없습니다.' : '';
+  $('jobs').closest('.tablewrap').hidden = !rows.length;
   for (const r of rows) {
     const j = r.job;
-    const li = document.createElement('li');
-    li.className = 'job' + (r.id === currentJobId ? ' cur' : '');
-    li.innerHTML = `<label><input type="checkbox" aria-label="선택"${picked.has(r.id) ? ' checked' : ''}></label>
-      <button type="button" class="open">
-        <div class="l1"><b>${hl(j.member, q)}</b><span>${hl(j.spec, q)}</span>
-          ${r.completed_at ? `<em class="badge done">완료 ${fmt(r.completed_at)}</em>`
-            : `<em class="badge ${j.approved ? 'ok' : 'no'}">${j.approved ? '승인' : '미승인'}</em>`}</div>
-        <div class="l2">${j.length_mm} mm · 금지 영역 ${j.exclusion_zones.length}개 · ${hl(j.approved_by, q)} · 저장 ${fmt(r.saved_at)}</div>
-      </button>`;
-    li.querySelector('input').onchange = (e) => { e.target.checked ? picked.add(r.id) : picked.delete(r.id); syncPick(); };
-    li.querySelector('.open').onclick = () => {
+    const tr = document.createElement('tr');
+    if (r.id === currentJobId) tr.className = 'cur';
+    const badge = r.completed_at ? '' : `<em class="badge ${j.approved ? 'ok' : 'no'}">${j.approved ? '승인' : '미승인'}</em>`;
+    tr.innerHTML = `<td class="ck"><input type="checkbox" aria-label="${esc(j.member)} 선택"${picked.has(r.id) ? ' checked' : ''}></td>
+      <td class="mem"><b>${hl(j.member, q)}</b>${badge}</td>
+      <td>${hl(j.approved_by, q)}</td>
+      <td class="spec">${hl(j.spec, q)}</td>
+      <td class="date">${fmtDate(r.completed_at || r.saved_at)}</td>`;
+    const ck = tr.querySelector('input');
+    ck.onchange = () => { ck.checked ? picked.add(r.id) : picked.delete(r.id); syncPick(); };
+    tr.querySelector('.ck').onclick = (e) => { if (e.target !== ck) { ck.checked = !ck.checked; ck.onchange(); } };
+    tr.onclick = (e) => {
+      if (e.target.closest('.ck')) return;
       try { loadJob(r.job); currentJobId = r.id; saveDraft(); showEditing(); screen('edit'); msg(`불러옴: ${j.member}`, 'ok'); }
-      catch (e) { msg(e.message, 'err', 'listMsg'); }
+      catch (err) { msg(err.message, 'err', 'listMsg'); }
     };
-    ul.append(li);
+    tb.append(tr);
   }
   syncPick();
 }
@@ -666,7 +708,8 @@ function syncPick() {
   $('selAll').checked = rows.length > 0 && vis === rows.length;
   $('selAll').indeterminate = vis > 0 && vis < rows.length;
 }
-$('search').oninput = renderJobs;
+$('searchForm').onsubmit = (e) => { e.preventDefault(); appliedQ = $('search').value.trim(); renderJobs(); };
+$('search').oninput = () => { if (!$('search').value && appliedQ) { appliedQ = ''; renderJobs(); } };   // 지우면 전체 목록
 $('sort').onchange = renderJobs;
 $('selAll').onchange = () => {
   const rows = visibleJobs();
@@ -791,6 +834,7 @@ applyTheme();
 resize();
 setMode('view');
 specChanged(true);
+seedSamples();
 showEditing();
 screen('list');
 

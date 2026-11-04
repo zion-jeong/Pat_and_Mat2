@@ -117,18 +117,6 @@ button.ghost { background: transparent; }
 .count { display: inline-block; min-width: 20px; padding: 0 6px; border-radius: 10px; background: var(--line); color: var(--ink); font-size: 12px; font-variant-numeric: tabular-nums; }
 .editing { margin: 0 0 4px; font-size: 13px; color: var(--muted); min-height: 1.2em; }
 .editing b { color: var(--ink); }
-.listtools { border-top: 0; padding-top: 4px; }
-.listtools input[type=search] { display: block; width: 100%; padding: 9px 10px; min-height: 40px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink); font: inherit; margin-bottom: 8px; }
-.selall { align-self: end; margin-bottom: 18px; }
-.jobs { list-style: none; padding: 0; margin: 0 0 10px; display: grid; gap: 6px; }
-.job { display: flex; align-items: stretch; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); }
-.job.cur { border-color: var(--accent); }
-.job > label { display: flex; align-items: center; padding: 0 10px; margin: 0; }
-.job .open { flex: 1; text-align: left; border: 0; background: transparent; padding: 8px 10px 8px 0; min-height: 52px; border-radius: 0 8px 8px 0; }
-.job .l1 { display: flex; gap: 8px; align-items: baseline; }
-.job .l1 b { font-size: 15px; }
-.job .l1 span { font-size: 13px; color: var(--muted); }
-.job .l2 { font-size: 12px; color: var(--muted); margin-top: 2px; }
 .badge { font-style: normal; margin-left: auto; font-size: 11px; padding: 1px 7px; border-radius: 10px; white-space: nowrap; }
 .badge.ok { background: color-mix(in srgb, var(--ok) 18%, transparent); color: var(--ok); }
 .badge.no { background: var(--line); color: var(--muted); }
@@ -149,3 +137,21 @@ button.wide { display: block; width: 100%; margin: 4px 0 12px; min-height: 44px;
 .app.listmode { grid-template-columns: 1fr; grid-template-rows: none; height: auto; min-height: 100dvh; }
 .app.listmode .view { display: none; }
 .app.listmode .panel { border-right: 0; width: 100%; max-width: 880px; margin: 0 auto; min-height: 100dvh; overflow: visible; }
+
+.searchbar { display: flex; gap: 6px; margin-bottom: 10px; }
+.searchbar input { flex: 1; min-width: 0; padding: 9px 10px; min-height: 42px; border: 1px solid var(--line); border-radius: 8px; background: var(--field); color: var(--ink); font: inherit; }
+.searchbar select { width: auto; margin: 0; min-height: 42px; flex: none; }
+.iconbtn { flex: none; width: 44px; min-height: 42px; padding: 0; display: grid; place-items: center; background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.iconbtn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; }
+.tablewrap { border: 1px solid var(--line); border-radius: 10px; overflow: auto; margin-bottom: 10px; }
+.jtable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.jtable th { text-align: left; font-size: 12px; font-weight: 600; color: var(--muted); background: var(--field); padding: 8px 10px; white-space: nowrap; border-bottom: 1px solid var(--line); }
+.jtable td { padding: 10px; border-bottom: 1px solid var(--line); white-space: nowrap; font-variant-numeric: tabular-nums; }
+.jtable tbody tr:last-child td { border-bottom: 0; }
+.jtable tbody tr { cursor: pointer; }
+.jtable tbody tr:hover { background: var(--field); }
+.jtable tbody tr.cur { box-shadow: inset 3px 0 0 var(--accent); }
+.jtable .ck { width: 40px; text-align: center; padding: 0 0 0 4px; }
+.jtable td.mem b { margin-right: 6px; }
+.jtable td.date { color: var(--muted); font-size: 13px; }
+.jtable td.spec { color: var(--muted); }
