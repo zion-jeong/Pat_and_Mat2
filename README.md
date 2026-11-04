@@ -82,6 +82,17 @@ python3 -m http.server 8000
 `pose` = 부재 좌표 원점(시작단, 웹 중심, 하부 플랜지 아랫면)의 월드 위치, `yaw` = 부재 X축 방향(+Y면 π/2).
 부재 좌표의 도장 경로점을 월드로 바꾸려면 이 pose로 변환하면 됩니다.
 
+## 로봇(ROS 2 / Gazebo)으로 보내기
+
+작업 목록의 **작업 시작**이 내보낸 `steelcoat_work_*.json`을 공장 실행에 넘깁니다.
+
+```bash
+ros2 launch coating_factory_gazebo factory_harmonic.launch.py work_order:=/경로/steelcoat_work_*.json
+```
+
+기존 작업용 빔 대신 지시서의 빔이 받침대에 놓이고(비도장 영역 빨강), 빔 TF와 월드 좌표 도장 경로
+(`/steelcoat/work/plan`)가 발행됩니다. 자세한 내용은 Pat_and_Mat 저장소 `src/steelcoat_path/README.md`.
+
 ## 좌표와 면 (planner.py와 동일)
 
 - X: 길이, 0 = 시작단(초록 단면) / Y: 폭, 웹 중심 0, +좌 / Z: 높이, 0 = 하부 플랜지 아랫면. 단위 mm
