@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from './vendor/OrbitControls.js';
 import { HBEAM_SPECS, HBEAM_SOURCE } from './hbeam_specs.js';
+import { createWork3D } from './work3d.js?v=14';
 
 const SNAP = 5;            // mm
 const MIN_SIZE = 10;       // mm, 이보다 작은 드래그는 무시
@@ -642,9 +643,9 @@ function seedWorkDemo() {
     if (localStorage.getItem('steelcoat-seed-work')) return;
     if (localStorage.getItem(SEED_KEY) === null) seedSamplesOnly();
     const list = readJobs();
-    if (!list.some((r) => r.stage === 'work')) {
+    if (!list.some((r) => r.work || r.stage === 'work')) {
       const pick = [['라온플랜트', 'D-401'], ['라온플랜트', 'D-403'], ['한결엔지니어링', 'E-501'], ['한결엔지니어링', 'E-502']];
-      list.forEach((r) => { if (!r.completed_at && pick.some(([c, m]) => r.job.client === c && r.job.member === m)) r.stage = 'work'; });
+      list.forEach((r) => { if (!r.completed_at && pick.some(([c, m]) => r.job.client === c && r.job.member === m)) r.work = true; });
       writeJobs(list);
     }
     localStorage.setItem('steelcoat-seed-work', '1');
@@ -710,7 +711,8 @@ function hl(text, q) {
 
 const picked = new Set();
 let listMode = 'ready';        // 'ready' 준비 목록 / 'work' 작업 목록 / 'done' 완료 목록
-const stageOf = (r) => r.stage || (r.completed_at ? 'done' : 'ready');
+const stageOf = (r) => (r.completed_at || r.stage === 'done' ? 'done' : 'ready');
+const inWork = (r) => stageOf(r) === 'ready' && (r.work === true || r.stage === 'work');   // 준비 목록에도 남아 있음
 const fmtDate = (iso) => { const d = new Date(iso), z = (n) => String(n).padStart(2, '0'); return `${d.getFullYear()}.${z(d.getMonth() + 1)}.${z(d.getDate())} ${z(d.getHours())}:${z(d.getMinutes())}`; };
 const fmt = (iso) => { const d = new Date(iso); return `${d.getMonth() + 1}/${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
 let appliedQ = '';             // 돋보기(또는 Enter)로 적용한 검색어
@@ -735,7 +737,7 @@ function openInEditor(r) {
 function renderCounts(all = readJobs()) {
   const n = (st) => all.filter((r) => stageOf(r) === st).length;
   $('listCount').textContent = n('ready');
-  $('workCount').textContent = n('work');
+  $('workCount').textContent = all.filter(inWork).length;
   $('doneCount').textContent = n('done');
   const ws = workStatus(all);
   $('workStatus').textContent = ws.label;
@@ -765,7 +767,8 @@ function renderJobs() {
     if ($('sort').value === 'client' && prevClient !== undefined && norm(prevClient) !== norm(j.client)) cls.push('grp');
     prevClient = j.client;
     tr.className = cls.join(' ');
-    const badge = listMode === 'done' ? '' : `<em class="badge ${j.approved ? 'ok' : 'no'}">${j.approved ? '승인' : '미승인'}</em>`;
+    const badge = listMode === 'done' ? '' : `<em class="badge ${j.approved ? 'ok' : 'no'}">${j.approved ? '승인' : '미승인'}</em>`
+      + (inWork(r) ? `<em class="badge work">작업 목록${r.placement ? ' · ' + r.placement.station : ''}</em>` : '');
     tr.innerHTML = `<td class="ck"><input type="checkbox" aria-label="${esc(j.member)} 선택"${picked.has(r.id) ? ' checked' : ''}></td>
       <td class="mem"><b>${hl(j.member, q)}</b>${badge}</td>
       <td>${hl(j.approved_by, q)}</td>
@@ -803,6 +806,8 @@ $('selAll').onchange = () => {
   renderJobs();
 };
 $('deleteSel').onclick = () => {
+  const run = readWork().run_ids || [];
+  if (readWork().state !== 'idle' && [...picked].some((id) => run.includes(id))) return msg('작업 중인 H빔은 삭제할 수 없습니다.', 'err', 'listMsg');
   if (!confirm(`선택한 ${picked.size}개 작업을 목록에서 삭제할까요?`)) return;
   writeJobs(readJobs().filter((r) => !picked.has(r.id)));
   if (picked.has(currentJobId)) currentJobId = null;
@@ -836,17 +841,18 @@ $('exportSel').onclick = () => {
 $('sendWork').onclick = () => {
   const list = readJobs();
   const sel = list.filter((r) => picked.has(r.id));
-  const ok = sel.filter((r) => r.job.approved), no = sel.length - ok.length;
-  if (!ok.length) return msg('승인된 작업만 보낼 수 있습니다. 편집 화면에서 승인 후 저장하세요.', 'err', 'listMsg');
-  ok.forEach((r) => { r.stage = 'work'; delete r.placement; });
+  const already = sel.filter(inWork).length;
+  const ok = sel.filter((r) => r.job.approved && !inWork(r)), no = sel.filter((r) => !r.job.approved).length;
+  if (!ok.length) return msg(already ? '이미 작업 목록에 있습니다.' : '승인된 작업만 보낼 수 있습니다. 편집 화면에서 승인 후 저장하세요.', 'err', 'listMsg');
+  ok.forEach((r) => { r.work = true; r.stage = 'ready'; delete r.placement; });
   writeJobs(list); picked.clear(); renderJobs();
-  msg(`${ok.length}개를 작업 목록으로 보냈습니다.${no ? ` 미승인 ${no}개는 남겨 두었습니다.` : ''}`, 'ok', 'listMsg');
+  msg(`${ok.length}개를 작업 목록으로 보냈습니다.${no ? ` 미승인 ${no}개는 보내지 않았습니다.` : ''}${already ? ` ${already}개는 이미 작업 목록에 있습니다.` : ''}`, 'ok', 'listMsg');
 };
 // 완료 → 준비
 $('backReady').onclick = () => {
   const list = readJobs();
   let n = 0;
-  for (const r of list) if (picked.has(r.id)) { r.stage = 'ready'; delete r.completed_at; delete r.placement; n++; }
+  for (const r of list) if (picked.has(r.id)) { r.stage = 'ready'; r.work = false; delete r.completed_at; delete r.placement; n++; }
   writeJobs(list); picked.clear(); renderJobs();
   msg(`${n}개를 준비 목록으로 되돌렸습니다.`, 'ok', 'listMsg');
 };
@@ -890,21 +896,21 @@ let workSel = null;                         // 작업 목록에서 고른 레코
 function readWork() { try { return JSON.parse(localStorage.getItem(WORK_KEY) || 'null') || { state: 'idle', run_ids: [] }; } catch { return { state: 'idle', run_ids: [] }; } }
 function writeWork(w) { try { localStorage.setItem(WORK_KEY, JSON.stringify(w)); } catch { /* 무시 */ } }
 function workStatus(all = readJobs()) {
-  const w = readWork(), n = all.filter((r) => stageOf(r) === 'work').length;
+  const w = readWork(), n = all.filter(inWork).length;
   if (w.state === 'running') return { key: 'running', label: '작업중', desc: '로봇이 배치된 H빔을 도장하고 있습니다.' };
   if (w.state === 'finished') return { key: 'finished', label: '작업 완료', desc: '로봇 작업이 끝났습니다. 확인 후 작업 완료 확인을 누르세요.' };
   if (!n) return { key: 'idle', label: '작업 대기', desc: '작업 목록이 비어 있습니다. 준비 목록에서 작업으로 보내세요.' };
   return { key: 'ready', label: '작업 준비', desc: 'H빔을 받침대에 배치하고 작업 시작을 누르세요.' };
 }
 const lenM = (r) => r.job.length_mm / 1000;
-const placedAt = (list, st) => list.find((r) => stageOf(r) === 'work' && r.placement?.station === st);
+const placedAt = (list, st) => list.find((r) => inWork(r) && r.placement?.station === st);
 const clampY = (r, yc) => clamp(yc, LANE_Y[0] + lenM(r) / 2, LANE_Y[1] - lenM(r) / 2);
 const saddlesUnder = (r) => SADDLE_Y.filter((y) => Math.abs(y - r.placement.yc) <= lenM(r) / 2 - 0.2).length;
 function updateWork(fn) { const list = readJobs(); fn(list); writeJobs(list); renderJobs(); }
 
 function renderWork() {
   const all = readJobs(), w = readWork();
-  const jobs = all.filter((r) => stageOf(r) === 'work')
+  const jobs = all.filter(inWork)
     .sort((a, b) => (a.placement ? 0 : 1) - (b.placement ? 0 : 1)
       || (a.placement && b.placement ? a.placement.station.localeCompare(b.placement.station, 'en', { numeric: true }) : 0)
       || nat(a.job.client, b.job.client) || nat(a.job.member, b.job.member));
@@ -925,7 +931,7 @@ function renderWork() {
       <div class="acts">
         ${p ? '<button type="button" data-a="flip">시작단 방향 바꾸기</button><button type="button" data-a="unplace">배치 해제</button>' : ''}
         <button type="button" data-a="edit">금지 영역 보기</button>
-        <button type="button" data-a="ready">준비 목록으로</button>
+        <button type="button" data-a="ready" title="작업 목록에서 빼기 (준비 목록에는 남음)">제외하기</button>
       </div>`;
     li.onclick = (e) => {
       const a = e.target.closest('[data-a]')?.dataset.a;
@@ -933,7 +939,7 @@ function renderWork() {
       if (lock && a) return msg('작업 중에는 바꿀 수 없습니다.', 'err', 'workMsg');
       if (a === 'flip') return updateWork((l) => { const x = l.find((y) => y.id === r.id); x.placement.dir *= -1; });
       if (a === 'unplace') return updateWork((l) => { delete l.find((y) => y.id === r.id).placement; });
-      if (a === 'ready') return updateWork((l) => { const x = l.find((y) => y.id === r.id); x.stage = 'ready'; delete x.placement; });
+      if (a === 'ready') return updateWork((l) => { const x = l.find((y) => y.id === r.id); x.work = false; x.stage = 'ready'; delete x.placement; });
       workSel = workSel === r.id ? null : r.id;
       renderWork();
     };
@@ -946,7 +952,43 @@ function renderWork() {
   $('robotDone').hidden = $('stopWork').hidden = w.state !== 'running';
   $('confirmDone').hidden = w.state !== 'finished';
   drawPlan(jobs, w);
+  if (planMode === '3d') work3d.update({
+    factory: FACTORY, stations: STATIONS, saddleY: SADDLE_Y, supportZ: SUPPORT_Z, laneY: LANE_Y, laneMid: LANE_MID,
+    lock, showAdd: !lock,
+    beams: jobs.filter((r) => r.placement).map((r) => ({
+      id: r.id, station: r.placement.station, yc: r.placement.yc, dir: r.placement.dir, L: lenM(r), member: r.job.member,
+      spec: specM(r), sel: r.id === workSel, run: lock && w.run_ids?.includes(r.id),
+    })),
+  });
 }
+// 3D 배치 화면
+const specM = (r) => { const s = r.job.spec_ref || {}; return { H: (s.H || 300) / 1000, B: (s.B || 200) / 1000, t1: (s.t1 || 8) / 1000, t2: (s.t2 || 12) / 1000 }; };
+let planMode = (() => { try { return localStorage.getItem('steelcoat-planmode') || '3d'; } catch { return '3d'; } })();
+const work3d = createWork3D({
+  canvas: $('c3'),
+  hShape,
+  onAdd: (st) => placeAt(st),
+  onSelect: (id) => { workSel = id; renderWork(); },
+  onDrag: (id, yc) => {
+    const list = readJobs(), r = list.find((x) => x.id === id);
+    if (!r?.placement) return;
+    r.placement.yc = clampY(r, Math.round(yc * 4) / 4);   // 0.25 m 단위
+    writeJobs(list); workSel = id; renderWork();
+  },
+});
+function setPlanMode(m) {
+  planMode = m;
+  try { localStorage.setItem('steelcoat-planmode', m); } catch { /* 무시 */ }
+  document.querySelectorAll('[data-pv]').forEach((b) => b.setAttribute('aria-pressed', b.dataset.pv === m));
+  $('c3').hidden = m !== '3d';
+  $('plan').hidden = m !== '2d';
+  $('home3d').hidden = m !== '3d';
+  work3d.setActive(m === '3d' && document.querySelector('.app').classList.contains('workmode'));
+  if (listMode === 'work') renderWork();
+}
+document.querySelectorAll('[data-pv]').forEach((b) => (b.onclick = () => setPlanMode(b.dataset.pv)));
+$('home3d').onclick = () => work3d.home();
+if (location.hash === '#debug') window.__w3 = work3d;
 
 // 배치도: 화면 오른쪽 = +Y, 화면 아래 = +X(입구). 위에서 내려다본 모습(좌우 반전 없음).
 const SVGNS = 'http://www.w3.org/2000/svg';
@@ -1034,7 +1076,7 @@ function placeAt(stId) {
     const r = list.find((x) => x.id === workSel);
     r.placement = { station: stId, yc: clampY(r, r.placement?.yc ?? LANE_MID), dir: r.placement?.dir ?? 1 };
   });
-  const next = readJobs().filter((r) => stageOf(r) === 'work' && !r.placement)
+  const next = readJobs().filter((r) => inWork(r) && !r.placement)
     .sort((a, b) => nat(a.job.client, b.job.client) || nat(a.job.member, b.job.member))[0];
   workSel = next?.id ?? workSel;                                           // 다음 미배치 빔 자동 선택
   msg(`${stId}에 배치했습니다.`, 'ok', 'workMsg');
@@ -1063,7 +1105,7 @@ function workOrder(recs) {
   };
 }
 $('startWork').onclick = () => {
-  const all = readJobs(), jobs = all.filter((r) => stageOf(r) === 'work');
+  const all = readJobs(), jobs = all.filter(inWork);
   const placed = jobs.filter((r) => r.placement).sort((a, b) => a.placement.station.localeCompare(b.placement.station, 'en', { numeric: true }));
   if (!placed.length) return msg('받침대에 배치된 H빔이 없습니다.', 'err', 'workMsg');
   const un = jobs.length - placed.length;
@@ -1082,7 +1124,7 @@ $('confirmDone').onclick = () => {
   let n = 0;
   updateWork((list) => list.forEach((r) => {
     if (!w.run_ids.includes(r.id)) return;
-    r.stage = 'done'; r.completed_at = now; r.done_station = r.placement?.station; delete r.placement; n++;
+    r.stage = 'done'; r.work = false; r.completed_at = now; r.done_station = r.placement?.station; delete r.placement; n++;
   }));
   writeWork({ state: 'idle', run_ids: [] });
   renderJobs();
@@ -1095,6 +1137,7 @@ function screen(name) {
   app.classList.toggle('listmode', name === 'list' && listMode !== 'work');   // 준비·완료 목록은 패널만
   app.classList.toggle('workmode', name === 'list' && listMode === 'work');   // 작업 목록은 패널 + 배치도
   if (name === 'edit') requestAnimationFrame(() => { resize(); setView('iso'); });
+  work3d.setActive(name === 'list' && listMode === 'work' && planMode === '3d');
   $('tabEdit').hidden = name !== 'edit';
   $('tabList').hidden = name !== 'list';
   $('listPane').hidden = listMode === 'work';
@@ -1148,6 +1191,7 @@ setMode('view');
 specChanged(true);
 seedSamples();
 showEditing();
+setPlanMode(planMode);
 screen('list');
 
 // ---------- 앱 설치 ----------

@@ -1,8 +1,8 @@
 // 오프라인 사용을 위한 캐시. 파일을 바꾸면 VERSION을 올리세요.
-const VERSION = 'steelcoat-web-v13';
+const VERSION = 'steelcoat-web-v14';
 const FILES = [
   './', 'index.html', 'style.css', 'app.js', 'hbeam_specs.js', 'manifest.webmanifest',
-  'vendor/three.module.min.js', 'vendor/OrbitControls.js',
+  'work3d.js', 'vendor/three.module.min.js', 'vendor/OrbitControls.js',
   'icons/icon.svg', 'icons/icon-192.png', 'icons/icon-512.png',
 ];
 self.addEventListener('install', (e) => {
