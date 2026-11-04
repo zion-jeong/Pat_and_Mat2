@@ -564,30 +564,22 @@ function writeJobs(list) {
   try { localStorage.setItem(JOBS_KEY, JSON.stringify(list)); return true; }
   catch { return false; }
 }
-// 처음 실행(저장 목록이 아예 없을 때)만 예시 데이터를 넣음. 목록에서 삭제 가능.
+// 예시 데이터: 버전별로 한 번만, 목록에 없는 (발주사 + 부재 번호)만 추가. 목록에서 삭제 가능.
+const SEED_KEY = 'steelcoat-seed-v2';
 const CLIENT_OF = { 'B-101': '가온건설', 'B-102': '가온건설', 'B-103': '가온건설', 'B-104': '누리철강', 'B-201': '누리철강', 'B-202': '누리철강', 'B-203': '다온중공업', 'C-301': '다온중공업' };
-function seedSamples() {
-  let raw;
-  try { raw = localStorage.getItem(JOBS_KEY); } catch { return; }
-  if (raw !== null) {
-    // 발주사 항목이 생기기 전에 들어간 예시 데이터에 발주사를 채움 (한 번만)
-    try {
-      if (localStorage.getItem('steelcoat-seed-client')) return;
-      const list = readJobs();
-      list.forEach((r) => { if (!r.job.client && CLIENT_OF[r.job.member]) r.job.client = CLIENT_OF[r.job.member]; });
-      writeJobs(list); localStorage.setItem('steelcoat-seed-client', '1');
-    } catch { /* 무시 */ }
-    return;
-  }
-  try { localStorage.setItem('steelcoat-seed-client', '1'); } catch { /* 무시 */ }
-  const day = (d, h) => { const t = new Date(); t.setDate(t.getDate() - d); t.setHours(h, (d * 17) % 60, 0, 0); return t.toISOString(); };
-  const mk = (member, no, len, op, approved, zones, saved, done) => {
+function sampleJobs() {
+  const now = Date.now();
+  const day = (d, h, m = 0) => {
+    const t = new Date(); t.setDate(t.getDate() - d); t.setHours(h, m, 0, 0);
+    return (t > now ? new Date(now - (h * 7 + m) * 60000) : t).toISOString();   // 미래 시각 방지
+  };
+  const mk = ([client, member, no, len, op, approved, zones, saved, done], i) => {
     const sp = HBEAM_SPECS.find((x) => x.no === no);
     const f = faces(sp);
     return {
-      id: newId(), saved_at: day(saved, 10), ...(done != null ? { completed_at: day(done, 16) } : {}),
+      id: newId() + i, saved_at: day(saved, 9 + (i % 8), (i * 13) % 60), ...(done != null ? { completed_at: day(done, 15 + (i % 3), (i * 7) % 60) } : {}),
       job: {
-        schema: 'steelcoat-job-v1', client: CLIENT_OF[member], member, approved, approved_by: op, approved_at: approved ? day(saved, 10) : null,
+        schema: 'steelcoat-job-v1', client, member, approved, approved_by: op, approved_at: approved ? day(saved, 9 + (i % 8)) : null,
         spec: specString(sp),
         spec_ref: { standard: 'KS D 3502:2022', source: HBEAM_SOURCE, no: sp.no, nominal: sp.nominal, H: sp.H, B: sp.B, t1: sp.t1, t2: sp.t2, r: sp.r, kg_m: sp.kg_m },
         length_mm: len, frame: 'member_local_mm: X=길이(0=시작단), Y=폭(+좌, 웹 중심 0), Z=높이(0=하부 플랜지 아랫면)',
@@ -599,18 +591,49 @@ function seedSamples() {
       },
     };
   };
-  const ends = (L) => [['all', 0, 250], ['all', L - 250, L]];
-  const list = [
-    mk('B-101', 45, 6000, '홍길동', true, [...ends(6000), ['top_outer', 2900, 3100, -60, 60]], 3),
-    mk('B-102', 45, 6000, '홍길동', true, [...ends(6000), ['web_left', 1500, 1700], ['web_right', 1500, 1700]], 3),
-    mk('B-103', 29, 8000, '김철수', true, [...ends(8000), ['bottom_outer', 3800, 4200]], 2),
-    mk('B-104', 24, 6000, '김철수', false, ends(6000), 1),
-    mk('B-201', 67, 10000, '이영희', true, [...ends(10000), ['top_outer', 4900, 5100, -100, 100], ['bottom_outer', 4900, 5100]], 1),
-    mk('B-202', 72, 12000, '이영희', true, ends(12000), 5, 2),
-    mk('B-203', 21, 6000, '박민수', true, [...ends(6000), ['web_left', 2800, 3200, 100, 150]], 6, 4),
-    mk('C-301', 11, 4000, '박민수', false, [['all', 0, 150]], 0),
-  ];
-  writeJobs(list);
+  const E = (L, w = 250) => [['all', 0, w], ['all', L - w, L]];        // 양 끝 볼트 체결부
+  const mid = (L, face, w = 200) => [face, L / 2 - w / 2, L / 2 + w / 2];  // 가운데 이음부
+  // [발주사, 부재 번호, KS 번호, 길이, 작업자, 승인, 금지 영역, 저장(며칠 전), 완료(며칠 전)]
+  return [
+    ['가온건설', 'B-101', 45, 6000, '홍길동', true, [...E(6000), ['top_outer', 2900, 3100, -60, 60]], 3],
+    ['가온건설', 'B-102', 45, 6000, '홍길동', true, [...E(6000), ['web_left', 1500, 1700], ['web_right', 1500, 1700]], 3],
+    ['가온건설', 'B-103', 29, 8000, '김철수', true, [...E(8000), mid(8000, 'bottom_outer', 400)], 2],
+    ['가온건설', 'B-105', 45, 6000, '홍길동', true, E(6000), 3],
+    ['가온건설', 'B-106', 50, 9000, '최지우', true, [...E(9000, 300), mid(9000, 'top_outer')], 2],
+    ['가온건설', 'B-107', 50, 9000, '최지우', false, E(9000, 300), 0],
+    ['가온건설', 'B-108', 29, 8000, '김철수', true, E(8000), 8, 6],
+    ['가온건설', 'B-109', 29, 8000, '김철수', true, [...E(8000), mid(8000, 'web_left')], 8, 6],
+    ['누리철강', 'B-104', 24, 6000, '김철수', false, E(6000), 1],
+    ['누리철강', 'B-201', 67, 10000, '이영희', true, [...E(10000), ['top_outer', 4900, 5100, -100, 100], ['bottom_outer', 4900, 5100]], 1],
+    ['누리철강', 'B-202', 72, 12000, '이영희', true, E(12000), 5, 2],
+    ['누리철강', 'B-204', 67, 10000, '이영희', true, E(10000), 1],
+    ['누리철강', 'B-205', 76, 12000, '박민수', true, [...E(12000, 300), mid(12000, 'top_outer', 300), mid(12000, 'bottom_outer', 300)], 1],
+    ['누리철강', 'B-206', 76, 12000, '박민수', false, E(12000, 300), 0],
+    ['누리철강', 'B-207', 63, 7000, '이영희', true, E(7000), 7, 5],
+    ['다온중공업', 'B-203', 21, 6000, '박민수', true, [...E(6000), ['web_left', 2800, 3200, 100, 150]], 6, 4],
+    ['다온중공업', 'C-301', 11, 4000, '박민수', false, [['all', 0, 150]], 0],
+    ['다온중공업', 'C-302', 11, 4000, '최지우', true, [['all', 0, 150], ['all', 3850, 4000]], 2],
+    ['다온중공업', 'C-303', 7, 3000, '최지우', true, [['all', 0, 120]], 2],
+    ['다온중공업', 'C-304', 13, 5000, '홍길동', true, [...E(5000, 200), ['web_right', 1200, 1400, 60, 140]], 4, 3],
+    ['다온중공업', 'C-305', 13, 5000, '홍길동', true, E(5000, 200), 4],
+    ['라온플랜트', 'D-401', 84, 15000, '이영희', true, [...E(15000, 400), mid(15000, 'top_outer', 400), mid(15000, 'bottom_outer', 400)], 1],
+    ['라온플랜트', 'D-402', 84, 15000, '이영희', false, E(15000, 400), 0],
+    ['라온플랜트', 'D-403', 78, 14000, '박민수', true, [...E(14000, 350), ['top_inner_left', 6800, 7200], ['top_inner_right', 6800, 7200]], 1],
+    ['라온플랜트', 'D-404', 47, 9000, '김철수', true, E(9000), 9, 7],
+    ['라온플랜트', 'D-405', 47, 9000, '김철수', true, [...E(9000), mid(9000, 'web_left', 300)], 9, 7],
+    ['라온플랜트', 'D-406', 92, 16000, '최지우', false, E(16000, 400), 0],
+    ['한결엔지니어링', 'E-501', 34, 7500, '홍길동', true, E(7500), 2],
+    ['한결엔지니어링', 'E-502', 34, 7500, '홍길동', true, [...E(7500), ['bottom_outer', 3500, 4000, -80, 80]], 2],
+    ['한결엔지니어링', 'E-503', 17, 5500, '박민수', true, E(5500, 200), 10, 8],
+  ].map(mk);
+}
+function seedSamples() {
+  try { if (localStorage.getItem(SEED_KEY)) return; } catch { return; }
+  const list = readJobs();
+  // 발주사 항목이 생기기 전에 들어간 예시 데이터에 발주사 채움
+  list.forEach((r) => { if (!r.job.client && CLIENT_OF[r.job.member]) r.job.client = CLIENT_OF[r.job.member]; });
+  for (const rec of sampleJobs()) if (!list.some((r) => sameJob(r.job, rec.job))) list.push(rec);
+  if (writeJobs(list)) try { localStorage.setItem(SEED_KEY, '1'); } catch { /* 무시 */ }
 }
 const norm = (v) => (v || '').trim().toLowerCase();
 const sameJob = (a, b) => norm(a.client) === norm(b.client) && norm(a.member) === norm(b.member);   // 발주사 + 부재 번호
@@ -708,10 +731,10 @@ function renderJobs() {
     tr.className = cls.join(' ');
     const badge = r.completed_at ? '' : `<em class="badge ${j.approved ? 'ok' : 'no'}">${j.approved ? '승인' : '미승인'}</em>`;
     tr.innerHTML = `<td class="ck"><input type="checkbox" aria-label="${esc(j.member)} 선택"${picked.has(r.id) ? ' checked' : ''}></td>
-      <td class="cli">${hl(j.client || '-', q)}</td>
       <td class="mem"><b>${hl(j.member, q)}</b>${badge}</td>
       <td>${hl(j.approved_by, q)}</td>
       <td class="spec">${hl(j.spec, q)}</td>
+      <td class="cli">${hl(j.client || '-', q)}</td>
       <td class="date">${fmtDate(r.completed_at || r.saved_at)}</td>`;
     const ck = tr.querySelector('input');
     ck.onchange = () => { ck.checked ? picked.add(r.id) : picked.delete(r.id); syncPick(); };
