@@ -45,17 +45,13 @@
 
     <section>
       <h2>2. 금지 영역</h2>
-      <div class="seg" role="group" aria-label="화면 조작">
-        <button id="modeView" type="button" aria-pressed="false">보기 (회전)</button>
-        <button id="modeDraw" type="button" aria-pressed="true">영역 그리기</button>
-      </div>
       <label class="check"><input id="fullWidth" type="checkbox"> 면 폭 전체로 그리기</label>
       <div class="row tight">
         <button id="addAll" type="button" class="ghost">+ 전체 면 길이 구간</button>
         <button id="undo" type="button" class="ghost">되돌리기</button>
       </div>
       <ol id="zones" class="zones"></ol>
-      <p id="zoneEmpty" class="hint">3D 화면의 면 위를 드래그하면 사각형 금지 영역이 추가됩니다.</p>
+      <p id="zoneEmpty" class="hint">✏️ 영역 그리기를 누른 뒤 3D 화면의 면 위를 드래그하면 사각형 금지 영역이 추가됩니다.</p>
     </section>
 
     <section>
@@ -82,6 +78,10 @@
   <main class="view">
     <canvas id="c"></canvas>
     <div id="hud" class="hud"></div>
+    <div class="modebtns" role="group" aria-label="화면 조작">
+      <button id="modeView" type="button" aria-pressed="true"><span aria-hidden="true">🔄</span> 보기 (회전)</button>
+      <button id="modeDraw" type="button" aria-pressed="false"><span aria-hidden="true">✏️</span> 영역 그리기</button>
+    </div>
     <div class="viewbtns">
       <button type="button" data-view="iso">기본</button>
       <button type="button" data-view="top">위</button>

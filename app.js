@@ -14,7 +14,7 @@ const state = {
   member: '',
   zones: [],               // {id, face:'all'|faceId, start, end, from?, to?}
   selected: null,
-  mode: 'draw',
+  mode: 'view',
   fullWidth: false,
 };
 let nextId = 1;
@@ -51,7 +51,10 @@ function facePoint(f, x, u, off = 0) {
 function quadGeom(f, x0, x1, u0, u1, off) {
   const a = facePoint(f, x0, u0, off), b = facePoint(f, x1, u0, off);
   const c = facePoint(f, x1, u1, off), d = facePoint(f, x0, u1, off);
-  const g = new THREE.BufferGeometry().setFromPoints([a, b, c, a, c, d]);
+  // 앞면이 면의 바깥 법선을 향하도록 감기 순서 맞춤 (클릭 감지는 앞면만 함)
+  const n = new THREE.Vector3().subVectors(b, a).cross(new THREE.Vector3().subVectors(c, a));
+  const front = n.dot(new THREE.Vector3(...f.n)) >= 0;
+  const g = new THREE.BufferGeometry().setFromPoints(front ? [a, b, c, a, c, d] : [a, c, b, a, d, c]);
   g.computeVertexNormals();
   return g;
 }
@@ -211,6 +214,8 @@ function applyTheme() {
   scene.background = new THREE.Color(css('--view-bg') || '#e7e9ec');
 }
 matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
+
+if (location.hash === '#debug') window.__sc = { THREE, camera, controls, state, faces: () => faces(spec()) };
 
 (function loop() {
   controls.update();
@@ -591,7 +596,7 @@ fillNominals();
 syncInputs();
 applyTheme();
 resize();
-setMode('draw');
+setMode('view');
 specChanged(true);
 
 // ---------- 앱 설치 ----------

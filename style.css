@@ -57,11 +57,6 @@ button {
 button.primary { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); font-weight: 600; }
 button.primary:disabled { opacity: .45; cursor: not-allowed; }
 button.ghost { background: transparent; }
-.seg { display: grid; grid-template-columns: 1fr 1fr; margin-bottom: 10px; }
-.seg button { border-radius: 0; }
-.seg button:first-child { border-radius: 8px 0 0 8px; }
-.seg button:last-child { border-radius: 0 8px 8px 0; border-left: 0; }
-.seg button[aria-pressed=true] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
 .hint { color: var(--muted); font-size: 13px; margin: 0 0 8px; }
 .small { font-size: 12px; }
 .msg { min-height: 1.4em; font-size: 13px; margin: 4px 0 0; }
@@ -101,3 +96,7 @@ button.ghost { background: transparent; }
   .view { grid-row: 1; height: 55dvh; position: sticky; top: 0; z-index: 1; }
   .panel { grid-row: 2; border-right: 0; overflow: visible; }
 }
+
+.modebtns { position: absolute; right: 12px; top: 12px; display: flex; gap: 6px; }
+.modebtns button { background: var(--panel); min-height: 40px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.modebtns button[aria-pressed=true] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
