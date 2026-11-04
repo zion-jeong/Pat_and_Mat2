@@ -83,13 +83,11 @@ button.ghost { background: transparent; }
 .view { position: relative; background: var(--view-bg); min-height: 0; overflow: hidden; }
 #c { display: block; width: 100%; height: 100%; touch-action: none; }
 .hud {
-  position: absolute; left: 12px; top: 12px; padding: 6px 10px; border-radius: 8px;
+  position: absolute; left: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); padding: 6px 10px; border-radius: 8px;
   background: color-mix(in srgb, var(--panel) 85%, transparent); font-size: 13px; pointer-events: none;
   font-variant-numeric: tabular-nums;
 }
 .hud:empty { display: none; }
-.viewbtns { position: absolute; right: 12px; bottom: calc(12px + env(safe-area-inset-bottom)); display: flex; gap: 6px; }
-.viewbtns button { background: var(--panel); min-height: 38px; }
 
 @media (max-width: 820px) {
   .app { grid-template-columns: 1fr; grid-template-rows: 55dvh auto; height: auto; }
@@ -97,6 +95,18 @@ button.ghost { background: transparent; }
   .panel { grid-row: 2; border-right: 0; overflow: visible; }
 }
 
-.modebtns { position: absolute; right: 12px; top: 12px; display: flex; gap: 6px; }
-.modebtns button { background: var(--panel); min-height: 40px; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
-.modebtns button[aria-pressed=true] { background: var(--ink); color: var(--panel); border-color: var(--ink); }
+.toolbar {
+  position: absolute; right: 12px; top: 12px; left: 12px;
+  display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 8px; pointer-events: none;
+}
+.toolbar .grp {
+  display: flex; pointer-events: auto; background: var(--panel); border: 1px solid var(--line);
+  border-radius: 10px; padding: 3px; gap: 2px; box-shadow: 0 1px 4px rgba(0,0,0,.12);
+}
+.toolbar button {
+  display: inline-flex; align-items: center; gap: 6px; border: 0; background: transparent;
+  min-height: 36px; padding: 6px 12px; border-radius: 7px; font-size: 14px; white-space: nowrap;
+}
+.toolbar button:hover { background: var(--field); }
+.toolbar button[aria-pressed=true] { background: var(--ink); color: var(--panel); }
+.toolbar svg { width: 18px; height: 18px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }

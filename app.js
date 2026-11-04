@@ -193,10 +193,10 @@ function setView(kind) {
   const pos = {
     iso: [-d * 0.15, -d * 0.9, d * 0.4],
     top: [0, -d * 0.02, d * 1.1],
-    side: [0, -d * 1.05, s.H / 2],
-    end: [-L / 2 - Math.max(s.H, s.B) * 3.2, 0, s.H / 2],
+    bottom: [0, -d * 0.02, -d * 1.1],
+    left: [0, d * 1.05, s.H / 2],    // +Y 쪽에서 봄
+    right: [0, -d * 1.05, s.H / 2],  // -Y 쪽에서 봄
   }[kind];
-  if (kind === 'end') t.x = -L / 2;
   camera.position.set(...pos);
   controls.target.copy(t);
   controls.update();
